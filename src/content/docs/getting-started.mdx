@@ -1,0 +1,200 @@
+---
+title: Getting started
+description: Register, mint a key, and run your first pgLantern API calls.
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+pgLantern is a query layer over the Postgres mailing lists — `pgsql-hackers`, `pgsql-general`,
+and the rest, as structured, queryable data. Everything below hits the same API a script or CI
+job would use.
+
+## Register and mint a key
+
+Every `/api/v1` request needs an API key — there's no anonymous access. Free means no cost;
+registration and a key are still required.
+
+<Steps>
+
+1. Sign up at [app.pglantern.com](https://app.pglantern.com).
+
+2. Mint a key at [app.pglantern.com/users/api-keys](https://app.pglantern.com/users/api-keys).
+   The raw key is shown once, at creation — copy it now.
+
+</Steps>
+
+Send it with either header (`Authorization` is checked first):
+
+```
+Authorization: Bearer hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+X-API-Key: hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Export it once and reuse it in the examples below:
+
+```sh
+export HORTON_API_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Your first three curls
+
+Base URL: `https://app.pglantern.com/api/v1`.
+
+### List the mailing lists
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  https://app.pglantern.com/api/v1/lists
+```
+
+Illustrative response:
+
+```json
+{
+  "data": [
+    {
+      "name": "pgsql-hackers",
+      "short_desc": "PostgreSQL developers discussion",
+      "description": "Core development discussion for PostgreSQL hackers.",
+      "active": true
+    },
+    {
+      "name": "pgsql-general",
+      "short_desc": "General PostgreSQL discussion",
+      "description": "User questions and general discussion.",
+      "active": true
+    }
+  ]
+}
+```
+
+### Full-text search
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://app.pglantern.com/api/v1/search?q=vacuum+full&list=pgsql-hackers"
+```
+
+Illustrative response (trimmed):
+
+```json
+{
+  "data": [
+    {
+      "message_id": "<a1@example.com>",
+      "subject": "Re: vacuum full and bloat",
+      "sender": { "display_name": "Alice", "email": "alice@example.com" },
+      "sent_at": "2024-03-06T10:00:00Z",
+      "thread_id": "43818d78-a168-46b4-bd0f-02caab97b3e7"
+    }
+  ],
+  "next_cursor": "eyJ2IjpbMSwyXSwicyI6Imxhc3QiLCJkIjoiZGVzYyJ9",
+  "prev_cursor": null
+}
+```
+
+Default order is relevance (`ts_rank_cd`, capped at 200 results); `sort=sent_at` switches to the
+uncapped, index-backed recency ordering. See the [search guide](/guides/search/) for the full
+filter set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
+
+### Fetch one sender
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  https://app.pglantern.com/api/v1/senders/42
+```
+
+Illustrative response:
+
+```json
+{
+  "data": {
+    "id": 42,
+    "email": "alice@example.com",
+    "display_name": "Alice",
+    "stats": {
+      "message_count": 7,
+      "first_message_at": "2024-01-01T10:00:00Z",
+      "last_message_at": "2024-03-06T10:00:00Z"
+    },
+    "messages": [
+      {
+        "message_id": "<g5@example.com>",
+        "subject": "Re: vacuum full and bloat",
+        "sent_at": "2024-03-06T10:00:00Z",
+        "thread_id": "43818d78-a168-46b4-bd0f-02caab97b3e7",
+        "has_attachment": false,
+        "date_estimated": false
+      }
+    ]
+  }
+}
+```
+
+A bad or missing key gets a `401` in the standard [error envelope](/policies/errors/); an unknown
+id gets a `404` in the same shape.
+
+## Install horton
+
+`horton` is a `gh`-style CLI over this same API. There's no published binary or package yet —
+build it from source:
+
+<Steps>
+
+1. Install [mise](https://mise.jdx.dev) (or have Go 1.24+ on `PATH` directly).
+
+2. Clone and build:
+
+   ```sh
+   git clone https://codeberg.org/kehvyn/horton-cli
+   cd horton-cli
+   mise install
+   go build -o horton .
+   ```
+
+3. Put the resulting binary on your `PATH`, e.g. `mv horton ~/.local/bin/`.
+
+</Steps>
+
+## Log in
+
+```sh
+horton login --host https://app.pglantern.com
+```
+
+This prompts for the key you minted above, validates it against the server, then stores it —
+with the host — in `~/.config/horton/config.json` (mode `0600`). `horton logout` deletes the
+file. For scripts, pipe the key in instead: `horton login --with-token < key.txt`.
+
+Once logged in, host and key are implicit on every command — no more repeating headers and URLs:
+
+<Tabs>
+<TabItem label="curl">
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  https://app.pglantern.com/api/v1/lists
+```
+
+</TabItem>
+<TabItem label="horton">
+
+```sh
+horton lists
+```
+
+</TabItem>
+</Tabs>
+
+Every command renders a human-readable table by default; add `--json` for the raw response body:
+
+```sh
+horton lists --json | jq '.data[].name'
+```
+
+## Next
+
+- [CLI commands reference](/cli/commands/) for the full command surface.
+- [Search guide](/guides/search/) for ranking, filters, and `sort=sent_at`.
+- [Authentication](/concepts/authentication/) for key lifecycle and failure modes.
+- [Pagination](/concepts/pagination/) for cursor mechanics on list endpoints.

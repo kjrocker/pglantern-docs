@@ -1,40 +1,81 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: pgLantern
+description: A structured, queryable API over the Postgres mailing list archives — search, thread correlation, and commit history as JSON.
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
-  image:
-    file: ../../assets/houston.webp
+  tagline: pgLantern turns the Postgres mailing lists into a structured, queryable API — full-text search, thread-to-commit correlation, GUC history. The API is the product.
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: Get started
+      link: /getting-started/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+      variant: primary
+    - text: API reference
+      link: /reference/api/
       icon: external
-      variant: minimal
+      variant: secondary
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## One request, from thread to commit
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+Search the archives, filtered to threads that actually landed a commit:
+
+```bash
+curl -s -H "Authorization: Bearer hml_…" \
+  "https://app.pglantern.com/api/v1/search?q=vacuum+full&committed=true"
+```
+
+```json
+{
+  "data": [
+    {
+      "message_id": "MjAyNC0wMy0xMVQxNDoyMjowM1o...",
+      "subject": "Re: VACUUM FULL and visibility map corruption",
+      "sent_at": "2024-03-11T14:22:03Z",
+      "thread_id": "018e2f3a-9c11-7b3e-8f2d-4a6e1c9b0d21",
+      "sender": { "email": "alice@example.com", "display_name": "Alice Example" },
+      "commits": [
+        {
+          "sha": "a1b2c3d4e5f6",
+          "subject": "Fix VACUUM FULL visibility map rebuild",
+          "committed_at": "2024-03-20T09:00:00Z"
+        }
+      ]
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+Shortened and illustrative — `commits` isn't inlined on `/search`; fetch it per message via
+`GET /messages/{message_id}/commits`.
+
+## Three ways in
+
+<CardGrid>
+	<Card title="Search" icon="magnifier">
+		Full-text search tuned for Postgres jargon — synonym- and plural-aware, ranked by
+		`ts_rank_cd`, filterable by `committed`, `path`, and `major`.
+
+		`GET /search?q=…&sort=sent_at`
+
+		[Search guide →](/guides/search/)
 	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
+	<Card title="Correlation" icon="puzzle">
+		Walk from a discussion thread to the commit it produced, or from a GUC to the thread that
+		argued its default.
+
+		`GET /versions/17/gucs?changed_since=16`
+
+		[Correlation guide →](/guides/correlation/)
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="CLI" icon="rocket">
+		Same API, no `curl` boilerplate — script searches, threads, and commit lookups straight
+		from the terminal.
+
+		`horton search "vacuum full" --committed`
+
+		[CLI manual →](/cli/)
 	</Card>
 </CardGrid>

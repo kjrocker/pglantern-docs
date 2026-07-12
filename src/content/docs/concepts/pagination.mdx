@@ -1,0 +1,96 @@
+---
+title: Pagination
+description: Keyset cursors, opaque tokens, and the query-hash binding on relevance-ranked search cursors.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Every list endpoint (`/messages`, `/search`, `/threads`, `/senders`, `/commits`,
+`/attachments`, `/imports`) is **keyset-paginated**. There is no offset/page-number
+pagination anywhere in the API.
+
+## Cursors are opaque
+
+<Tabs>
+<TabItem label="curl">
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://app.pglantern.com/api/v1/messages?list=pgsql-hackers&limit=20"
+```
+
+```json
+{
+  "data": [ /* … 20 messages … */ ],
+  "next_cursor": "g3QAAAADdwFxYQFuAAAAAAA...",
+  "prev_cursor": null
+}
+```
+
+</TabItem>
+<TabItem label="horton">
+
+```sh
+horton messages --list pgsql-hackers --limit 20
+# next: --after g3QAAAADdwFxYQFuAAAAAAA...
+```
+
+Paginated commands print the next-page cursor to **stderr** (so table output
+stays pipe-clean) and take it back via `--after`.
+
+</TabItem>
+</Tabs>
+
+A page carries `next_cursor` and `prev_cursor`: base64url strings wrapping an
+`erlang.term_to_binary`-encoded ordering tuple, either of which is `null` when
+there's no further page in that direction. Feed one straight back as `?after=`
+or `?before=` to walk the collection.
+
+<Aside type="caution">
+Treat cursors as opaque. Don't decode, parse, or construct them — the encoding
+is an implementation detail and can change between releases without notice. The
+only supported operations are "hand back a cursor you were given" and "compare
+it to `null`."
+</Aside>
+
+Setting both `?after=` and `?before=` on the same request is rejected with `422`
+(`invalid_params`); an unparseable or tampered cursor is rejected with `400`
+(`invalid_cursor`).
+
+## Ordering is always composite
+
+The underlying tuple is never a single timestamp column. `sent_at` is
+`timestamptz` and collides — same-batch arrivals, normalized missing/malformed
+`Date` headers — so every keyset cursor is at minimum `(sent_at, id)`,
+tie-broken on the unique surrogate `id`. `sent_at` alone would silently skip or
+duplicate rows that share a timestamp across a page boundary.
+
+## `limit`
+
+`?limit=` bounds the page size; the domain default is 25, the max is 100. An
+out-of-range or non-integer value is `422` (`invalid_params`).
+
+## Relevance search cursors are query-scoped
+
+`/search`'s default order is relevance (`ts_rank_cd DESC, sent_at DESC, id
+DESC`), not recency. `ts_rank_cd` is computed per `(q, document)` at query time
+and isn't indexable, so the cursor for a relevance page is `(rank, sent_at,
+id)` — a tuple that's only meaningful for the exact query that produced it.
+
+To make that binding explicit, the cursor also embeds a hash of the normalized
+`q`. Reusing a relevance cursor with a **different** `q` fails:
+
+```json
+{ "error": { "code": "invalid_cursor", "message": "The pagination cursor is not valid." } }
+```
+
+The `(sent_at, id)` cursor used by list endpoints and by `?sort=sent_at` carries
+no such binding — it's query-independent and safe to reuse across requests.
+
+<Aside type="note">
+Relevance paging is also **capped at 200 results total** and is forward-only
+(`prev_cursor` is always `null`) — the rank isn't index-backed, so deep
+relevance paging is as expensive as offset pagination would be. `next_cursor`
+stops appearing once the cap is hit. `?sort=sent_at` is index-backed,
+bidirectional, and uncapped: switch to it (or narrow `q`) to page deeper.
+</Aside>

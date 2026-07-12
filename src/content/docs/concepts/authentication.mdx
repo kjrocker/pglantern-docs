@@ -1,0 +1,76 @@
+---
+title: Authentication
+description: API keys, the two accepted headers, and the unauthorized error.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Every `/api/v1` request requires a valid API key. There is no anonymous access to
+the JSON API.
+
+## Sending a key
+
+Two header forms are accepted; `Authorization` is checked first.
+
+<Tabs>
+<TabItem label="curl">
+
+```sh
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  https://app.pglantern.com/api/v1/lists
+
+curl -s -H "X-API-Key: $HORTON_API_KEY" \
+  https://app.pglantern.com/api/v1/lists
+```
+
+</TabItem>
+<TabItem label="horton">
+
+```sh
+horton login                       # prompts for the key, validates it, saves it
+horton lists                       # uses the saved key on every call after that
+```
+
+`horton login` also accepts `HORTON_API_KEY`/`HORTON_HOST` or `--api-key`/`--host`
+flags — see `horton login --help`.
+
+</TabItem>
+</Tabs>
+
+A request with neither header — or an unrecognized, revoked, or expired key —
+gets `401` with the standard [error envelope](/concepts/errors/):
+
+```json
+{ "error": { "code": "unauthorized", "message": "A valid API key is required." } }
+```
+
+## Minting and revoking a key
+
+Keys are managed at [`/users/api-keys`](https://app.pglantern.com/users/api-keys):
+create a named key (with an optional expiry), and the raw secret is shown
+**exactly once**, at creation time.
+
+<Aside type="caution">
+Only a SHA-256 hash of the key is stored server-side. A lost key can't be
+recovered — mint a new one and revoke the old. Revoking deletes the key
+immediately; any client still using it starts getting `401`s on its next request.
+</Aside>
+
+## Key format
+
+A raw key looks like:
+
+```
+hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+`hml_` followed by a base64url-encoded 32-byte random secret. The UI also shows
+a short display `prefix` (the first ~12 characters) so keys are distinguishable
+without ever re-exposing the secret.
+
+## Scope
+
+There's no permission scoping — any valid key grants full **read-only** access
+to the entire API (there are no write endpoints to restrict). Each key tracks a
+`last_used_at` timestamp, bumped on every authenticated request, which makes
+stale keys easy to spot before you revoke them.

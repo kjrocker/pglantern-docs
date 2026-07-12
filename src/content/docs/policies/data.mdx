@@ -1,0 +1,50 @@
+---
+title: Data & limits
+description: What the corpus is, what the API returns, and the honest limits — no invented numbers.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## The corpus
+
+pgLantern is a permanent public mirror of the PostgreSQL mailing lists — the same posture as the
+official archives. The lists are public and the project's culture treats them as a permanent
+public record: messages aren't removed, and this mirror doesn't remove them either. Copyright in
+message content stays with the original authors; pgLantern is a query layer over the archive, not
+a licensor of it.
+
+## Metadata only, never attachment bytes
+
+Every `/api/v1` response — including attachment resources — carries metadata only:
+
+- `GET /attachments/:id` returns `id`, `filename`, `content_type`, `size`, `part_index`, and
+  `message_id`. It never includes the raw `data` blob.
+- `GET /attachments/:id/patch` returns parsed diff metadata for attachments that parse as a
+  patch — format, series position, the format-patch subject, per-file diffstat. It never includes
+  the diff bytes themselves.
+
+There is no endpoint, anywhere in `/api/v1`, that returns raw or base64-encoded attachment
+content. That's a deliberate line: it bounds liability (attachments in a 25-year archive are
+untrusted input) and keeps the API cheap to serve.
+
+<Aside type="note">
+The website's `/attachments/:id/download` route does serve the actual bytes — but it's a plain
+HTML download link on the browse pages, not part of `/api/v1`. It isn't API-key authenticated,
+isn't in the OpenAPI spec, and isn't covered by the [versioning promise](/policies/versioning/).
+If you need attachment content from a script, fetch that URL directly; don't expect it to behave
+like a documented API endpoint.
+</Aside>
+
+## Honest limits
+
+- **Relevance search is capped at 200 results.** `GET /search` without `sort=sent_at` ranks by
+  `ts_rank_cd` and stops at 200 — Postgres full-text ranking isn't index-backed past that depth at
+  reasonable cost. Need more, or need to page through everything? Use `sort=sent_at`, which is
+  keyset-paginated and uncapped. See the [search guide](/guides/search/).
+- **Rate limits are not yet enforced.** There's no request quota, no `429`, no
+  `x-ratelimit-*` headers today. This will change, but no numbers, tiers, or dates are set — don't
+  build against a limit that doesn't exist yet, and don't assume the current lack of one is a
+  permanent guarantee.
+
+Nothing else is capped: message, thread, sender, commit, and GUC endpoints are fully paginated
+with no result ceiling.

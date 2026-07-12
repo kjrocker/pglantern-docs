@@ -1,0 +1,63 @@
+---
+title: Errors
+description: The JSON error envelope, HTTP status mapping, and every error code.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every non-2xx response from `/api/v1` is one shape:
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "No resource was found with that identifier.",
+    "details": {}
+  }
+}
+```
+
+- **`code`** — a stable, machine-readable `snake_case` slug, decoupled from the
+  HTTP status so you can branch on it without parsing prose or overloading the
+  status code. Slugs are never renamed once shipped.
+- **`message`** — human-readable, safe to surface to an end user. Never leaks
+  internals — no stack traces, no SQL.
+- **`details`** — optional structured context (e.g. which param was invalid).
+  **Omitted entirely when there's nothing to add** — never `null`, never a
+  forced empty object.
+
+A single `FallbackController` + `ErrorJSON` view render this envelope for every
+controller; no route ever falls through to a generic Phoenix HTML error page.
+
+## HTTP status mapping
+
+| Status | Meaning | Codes |
+| --- | --- | --- |
+| **400** | Malformed input that can't even be parsed | `invalid_cursor`, `invalid_query`, `invalid_message_id`, `invalid_sha` |
+| **401** | Missing or invalid API key | `unauthorized` |
+| **404** | Unknown entity | `not_found` |
+| **422** | Parsed fine, but semantically invalid | `invalid_params` |
+| **500** | Unexpected / infrastructure failure | `internal_error` |
+
+400 vs 422 is the consistent split across the API: **400** means "I couldn't
+even understand this input" (bad encoding, undecodable token); **422** means "I
+understood it, but it's not allowed" (an in-range-looking value that still
+violates a rule).
+
+## Error codes
+
+| `code` | Status | Fires when |
+| --- | --- | --- |
+| `not_found` | 404 | The path resolves syntactically but names nothing that exists — an unknown message-id, list, thread, or commit sha. |
+| `invalid_cursor` | 400 | `?after=`/`?before=` isn't decodable, or — for a relevance-ranked `/search` cursor — its embedded query hash doesn't match the current `q`. See [pagination](/concepts/pagination/). |
+| `invalid_query` | 400 | `/search`'s `q` param is missing or blank. |
+| `invalid_message_id` | 400 | The `:b64id` path segment isn't valid base64url, or doesn't decode to valid UTF-8. See [Message-Ids](/concepts/message-ids/). |
+| `invalid_sha` | 400 | A `:sha` path segment isn't exactly 40 hex characters. The API never resolves abbreviated shas. |
+| `invalid_params` | 422 | A parsed parameter fails a semantic rule — `limit` out of range, both `?after=` and `?before=` set on the same request, an unparseable date bound. `details.param` names the offending field. |
+| `unauthorized` | 401 | The request is missing both auth headers, or the key is unrecognized, revoked, or expired. See [Authentication](/concepts/authentication/). |
+| `internal_error` | 500 | Anything unmatched — infrastructure failures (lost DB connection, etc.) rather than bad input. Not something a client can fix by retrying with different input. |
+
+<Aside type="note">
+`code` is the contract, not `message` or the HTTP status alone — build your
+client's error handling to branch on `error.code`.
+</Aside>
