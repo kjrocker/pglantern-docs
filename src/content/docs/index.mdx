@@ -1,81 +1,12 @@
 ---
 title: pgLantern
-description: A structured, queryable API over the Postgres mailing list archives — search, thread correlation, and commit history as JSON.
+description: The pgLantern API documentation is under construction.
 template: splash
 hero:
-  tagline: pgLantern turns the Postgres mailing lists into a structured, queryable API — full-text search, thread-to-commit correlation, GUC history. The API is the product.
-  actions:
-    - text: Get started
-      link: /getting-started/
-      icon: right-arrow
-      variant: primary
-    - text: API reference
-      link: /reference/api/
-      icon: external
-      variant: secondary
+  tagline: 🚧 Documentation under construction
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+These docs aren't ready yet. Pages are still being written and may change or disappear
+without notice.
 
-## One request, from thread to commit
-
-Search the archives, filtered to threads that actually landed a commit:
-
-```bash
-curl -s -H "Authorization: Bearer hml_…" \
-  "https://app.pglantern.com/api/v1/search?q=vacuum+full&committed=true"
-```
-
-```json
-{
-  "data": [
-    {
-      "message_id": "MjAyNC0wMy0xMVQxNDoyMjowM1o...",
-      "subject": "Re: VACUUM FULL and visibility map corruption",
-      "sent_at": "2024-03-11T14:22:03Z",
-      "thread_id": "018e2f3a-9c11-7b3e-8f2d-4a6e1c9b0d21",
-      "sender": { "email": "alice@example.com", "display_name": "Alice Example" },
-      "commits": [
-        {
-          "sha": "a1b2c3d4e5f6",
-          "subject": "Fix VACUUM FULL visibility map rebuild",
-          "committed_at": "2024-03-20T09:00:00Z"
-        }
-      ]
-    }
-  ],
-  "next_cursor": null
-}
-```
-
-Shortened and illustrative — `commits` isn't inlined on `/search`; fetch it per message via
-`GET /messages/{message_id}/commits`.
-
-## Three ways in
-
-<CardGrid>
-	<Card title="Search" icon="magnifier">
-		Full-text search tuned for Postgres jargon — synonym- and plural-aware, ranked by
-		`ts_rank_cd`, filterable by `committed`, `path`, and `major`.
-
-		`GET /search?q=…&sort=sent_at`
-
-		[Search guide →](/guides/search/)
-	</Card>
-	<Card title="Correlation" icon="puzzle">
-		Walk from a discussion thread to the commit it produced, or from a GUC to the thread that
-		argued its default.
-
-		`GET /versions/17/gucs?changed_since=16`
-
-		[Correlation guide →](/guides/correlation/)
-	</Card>
-	<Card title="CLI" icon="rocket">
-		Same API, no `curl` boilerplate — script searches, threads, and commit lookups straight
-		from the terminal.
-
-		`horton search "vacuum full" --committed`
-
-		[CLI manual →](/cli/)
-	</Card>
-</CardGrid>
+If you were sent a direct link, it still works — paste the URL into your address bar.

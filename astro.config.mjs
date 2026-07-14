@@ -9,6 +9,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'pgLantern',
+			routeMiddleware: './src/routeData.ts',
 			logo: {
 				src: './src/assets/pglantern-logo.svg',
 				alt: 'pgLantern',
