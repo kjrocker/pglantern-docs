@@ -49,6 +49,7 @@ export default defineConfig({
 						},
 						{ label: 'Search guide', slug: 'guides/search' },
 						{ label: 'Correlation guide', slug: 'guides/correlation' },
+						{ label: 'Connect via MCP', slug: 'guides/mcp' },
 						{ label: 'Cookbook', slug: 'cookbook' },
 					],
 				},

@@ -1,0 +1,77 @@
+---
+title: Connect via MCP
+description: The pgLantern API as MCP tools — endpoint URL, client setup for claude.ai, Claude Code, and the Messages API, keys, and limits.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+```
+https://pglantern.com/mcp
+```
+
+The API is also an MCP server (Streamable HTTP). Eight tools — search, message
+and thread fetch, thread↔commit correlation, and the GUC catalog — each a thin
+pass-through to the corresponding `/api/v1` endpoint: same parameters, same
+response shapes, same error envelope rendered as tool-error text.
+
+## Connect a client
+
+<Tabs>
+<TabItem label="claude.ai">
+**Settings → Connectors → Add custom connector**, then enter
+`https://pglantern.com/mcp`. No OAuth screen — leave authentication empty for
+the anonymous tier.
+</TabItem>
+<TabItem label="Claude Code">
+```sh
+claude mcp add --transport http horton https://pglantern.com/mcp
+```
+With a key:
+```sh
+claude mcp add --transport http horton https://pglantern.com/mcp \
+  --header "Authorization: Bearer $HORTON_API_KEY"
+```
+</TabItem>
+<TabItem label="Messages API">
+```json
+{
+  "mcp_servers": [
+    {
+      "type": "url",
+      "url": "https://pglantern.com/mcp",
+      "name": "horton"
+    }
+  ]
+}
+```
+Requires the `mcp-client-2025-11-20` beta header.
+</TabItem>
+</Tabs>
+
+## Keys and limits
+
+A key is optional. Keyless tool calls ride the anonymous per-IP tier
+(1,000 requests/day, 24/min); send `Authorization: Bearer <key>` or
+`X-API-Key: <key>` on the MCP request for your plan's limits.
+
+Every tool call is one API request against the same daily quota — there is no
+separate MCP bucket. Over the limit, tools return an error with the retry
+delay in the text; result sets are capped (search ≤ 50 rows) and message
+bodies over 64KB are truncated with an explicit `*_truncated: true` marker
+plus a hint to refetch by id.
+
+## Tools
+
+| Tool | Backing endpoint |
+|---|---|
+| `search_messages` | `GET /search` |
+| `get_message` | `GET /messages/{message_id}` |
+| `get_thread` | `GET /messages/{message_id}/thread` |
+| `get_thread_commits` | `GET /messages/{message_id}/commits` |
+| `get_commit` | `GET /commits/{sha}` |
+| `get_commit_thread` | `GET /commits/{sha}/thread` |
+| `list_mailing_lists` | `GET /lists` |
+| `list_gucs` | `GET /versions/{major}/gucs` |
+
+Parameter names and semantics are exactly the API's — the
+[API reference](/api/) applies verbatim.
