@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Register, mint a key, and run your first pgLantern API calls.
+description: Run your first pgLantern API calls — curl or the lantern CLI, with or without a key.
 ---
 
 import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -9,16 +9,45 @@ pgLantern is a query layer over the Postgres mailing lists — `pgsql-hackers`, 
 and the rest, as structured, queryable data. Everything below hits the same API a script or CI
 job would use.
 
-## Register and mint a key
+## Your first call — no key needed
 
-Every `/api/v1` request needs an API key — there's no anonymous access. Free means no cost;
-registration and a key are still required.
+Every `/api/v1` endpoint works without a key on the anonymous per-IP tier
+(1,000 requests/day, 24/minute per IP). Base URL: `https://pglantern.com/api/v1`.
+
+```sh check=lists-anon
+curl -s https://pglantern.com/api/v1/lists | jq -r '.data[].name'
+```
+
+```txt output=lists-anon
+buildfarm-members
+pgsql-admin
+pgsql-advocacy
+pgsql-announce
+pgsql-bugs
+pgsql-docs
+pgsql-general
+pgsql-gui-dev
+pgsql-hackers
+pgsql-interfaces
+pgsql-jobs
+pgsql-novice
+pgsql-performance
+pgsql-sql
+pgsql-translators
+pgsql-women
+pgsql-www
+```
+
+## Mint a key
+
+A key raises the limits (free tier: 2,000 requests/day) and ties usage to your account instead
+of your IP.
 
 <Steps>
 
-1. Sign up at [app.pglantern.com](https://app.pglantern.com).
+1. Sign up at [pglantern.com](https://pglantern.com).
 
-2. Mint a key at [app.pglantern.com/users/api-keys](https://app.pglantern.com/users/api-keys).
+2. Mint a key at [pglantern.com/users/api-keys](https://pglantern.com/users/api-keys).
    The raw key is shown once, at creation — copy it now.
 
 </Steps>
@@ -36,160 +65,190 @@ Export it once and reuse it in the examples below:
 export HORTON_API_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## Your first three curls
-
-Base URL: `https://app.pglantern.com/api/v1`.
-
-### List the mailing lists
-
-```sh
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
-  https://app.pglantern.com/api/v1/lists
-```
-
-Illustrative response:
-
-```json
-{
-  "data": [
-    {
-      "name": "pgsql-hackers",
-      "short_desc": "PostgreSQL developers discussion",
-      "description": "Core development discussion for PostgreSQL hackers.",
-      "active": true
-    },
-    {
-      "name": "pgsql-general",
-      "short_desc": "General PostgreSQL discussion",
-      "description": "User questions and general discussion.",
-      "active": true
-    }
-  ]
-}
-```
+## Two more curls
 
 ### Full-text search
 
-```sh
+```sh check=search-slots
 curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
-  "https://app.pglantern.com/api/v1/search?q=vacuum+full&list=pgsql-hackers"
+  "https://pglantern.com/api/v1/search?q=logical+replication+slot&list=pgsql-hackers&limit=2" | jq
 ```
 
-Illustrative response (trimmed):
-
-```json
+```json output=search-slots
 {
   "data": [
     {
-      "message_id": "<a1@example.com>",
-      "subject": "Re: vacuum full and bloat",
-      "sender": { "display_name": "Alice", "email": "alice@example.com" },
-      "sent_at": "2024-03-06T10:00:00Z",
-      "thread_id": "43818d78-a168-46b4-bd0f-02caab97b3e7"
+      "lists": [
+        {
+          "active": true,
+          "name": "pgsql-hackers",
+          "short_desc": "PostgreSQL developer discussion"
+        }
+      ],
+      "html_url": "https://pglantern.com/messages/CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-%2BBBLcw%40mail.gmail.com",
+      "subject": "Re: Issue with logical replication slot during switchover",
+      "message_id": "CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-+BBLcw@mail.gmail.com",
+      "sent_at": "2025-08-27T14:24:53Z",
+      "archive_url": "https://postgr.es/m/CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-%2BBBLcw%40mail.gmail.com",
+      "sender": {
+        "email": "fabrice636861@gmail.com",
+        "display_name": "Fabrice Chapuis"
+      },
+      "from_raw": "Fabrice Chapuis <fabrice636861@gmail.com>",
+      "to_raw": "shveta malik <shveta.malik@gmail.com>",
+      "cc_raw": "PostgreSQL Hackers <pgsql-hackers@lists.postgresql.org>",
+      "has_attachment": false,
+      "date_estimated": false,
+      "thread_id": "1f930ea6-fee4-5ccc-89e5-98ae42956266"
+    },
+    {
+      "lists": [
+        {
+          "active": true,
+          "name": "pgsql-hackers",
+          "short_desc": "PostgreSQL developer discussion"
+        }
+      ],
+      "html_url": "https://pglantern.com/messages/CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO%3D5JP0zhya6RmQ%40mail.gmail.com",
+      "subject": "Re: Logical Replication slot disappeared after promote Standby",
+      "message_id": "CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO=5JP0zhya6RmQ@mail.gmail.com",
+      "sent_at": "2025-06-13T17:22:27Z",
+      "archive_url": "https://postgr.es/m/CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO%3D5JP0zhya6RmQ%40mail.gmail.com",
+      "sender": {
+        "email": "perucinci@gmail.com",
+        "display_name": "Perumal Raj"
+      },
+      "from_raw": "Perumal Raj <perucinci@gmail.com>",
+      "to_raw": "shveta malik <shveta.malik@gmail.com>",
+      "cc_raw": "\"Zhijie Hou (Fujitsu)\" <houzj.fnst@fujitsu.com>,\n pgsql-hackers@lists.postgresql.org",
+      "has_attachment": false,
+      "date_estimated": false,
+      "thread_id": "6002eda9-2b2f-5efd-b95f-516fa90473fe"
     }
   ],
-  "next_cursor": "eyJ2IjpbMSwyXSwicyI6Imxhc3QiLCJkIjoiZGVzYyJ9",
-  "prev_cursor": null
+  "total": 6634,
+  "prev_cursor": null,
+  "next_cursor": "g3QAAAADdwF2bAAAAANGQA0dgMAAAABuBwDA-kVKdzcGYgARJ-RqdwFxbQAAAAidJw2cdpOFcHcBbmEC",
+  "total_exact": true
 }
 ```
 
-Default order is relevance (`ts_rank_cd`, capped at 200 results); `sort=sent_at` switches to the
-uncapped, index-backed recency ordering. See the [search guide](/guides/search/) for the full
-filter set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
+Default order is relevance (capped at 200 results); `sort=sent_at` switches to the uncapped,
+index-backed recency ordering. See the [search guide](/guides/search/) for the full filter set
+(`list`, `from`/`to`, `sender`, `committed`, `path`, …).
 
 ### Fetch one sender
 
-```sh
+```sh check=sender-get
 curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
-  https://app.pglantern.com/api/v1/senders/42
+  https://pglantern.com/api/v1/senders/48 | jq '.data | {id, display_name, email, stats}'
 ```
 
-Illustrative response:
-
-```json
+```json output=sender-get
 {
-  "data": {
-    "id": 42,
-    "email": "alice@example.com",
-    "display_name": "Alice",
-    "stats": {
-      "message_count": 7,
-      "first_message_at": "2024-01-01T10:00:00Z",
-      "last_message_at": "2024-03-06T10:00:00Z"
-    },
-    "messages": [
-      {
-        "message_id": "<g5@example.com>",
-        "subject": "Re: vacuum full and bloat",
-        "sent_at": "2024-03-06T10:00:00Z",
-        "thread_id": "43818d78-a168-46b4-bd0f-02caab97b3e7",
-        "has_attachment": false,
-        "date_estimated": false
-      }
-    ]
+  "id": 48,
+  "display_name": "Tom Lane",
+  "email": "tgl@sss.pgh.pa.us",
+  "stats": {
+    "first_message_at": "1998-04-15T20:25:36Z",
+    "last_message_at": "2025-12-31T23:37:36Z",
+    "message_count": 129433,
+    "first_message_id": "28432.892671936@sss.pgh.pa.us",
+    "last_message_id": "3973232.1767224256@sss.pgh.pa.us"
   }
 }
 ```
 
-A bad or missing key gets a `401` in the standard [error envelope](/policies/errors/); an unknown
-id gets a `404` in the same shape.
+A bad key gets a `401` in the standard [error envelope](/policies/errors/); an unknown id gets
+a `404` in the same shape.
 
-## Install horton
+## Install lantern
 
-`horton` is a `gh`-style CLI over this same API. There's no published binary or package yet —
-build it from source:
+`lantern` is a `gh`-style CLI over this same API:
 
-<Steps>
+```sh skip=installs-from-the-network
+curl -fsSL https://codeberg.org/kehvyn/pglantern-cli/raw/branch/main/install.sh | bash
+```
 
-1. Install [mise](https://mise.jdx.dev) (or have Go 1.24+ on `PATH` directly).
+The installer downloads the release binary to `~/.local/bin` (override with `--bin-dir`). If
+you already have Go 1.24+ configured, `go install codeberg.org/kehvyn/pglantern-cli@latest`
+works too.
 
-2. Clone and build:
+Like the API, the CLI needs no key to work — keyless commands run on the same anonymous
+per-IP tier:
 
-   ```sh
-   git clone https://codeberg.org/kehvyn/horton-cli
-   cd horton-cli
-   mise install
-   go build -o horton .
-   ```
+```sh check=cli-lists
+lantern lists
+```
 
-3. Put the resulting binary on your `PATH`, e.g. `mv horton ~/.local/bin/`.
-
-</Steps>
+```txt output=cli-lists
+NAME               ACTIVE  DESCRIPTION
+buildfarm-members  yes     Buildfarm animal caretakers
+pgsql-admin        yes     PostgreSQL administration
+pgsql-advocacy     yes     Promoting PostgreSQL, user groups, marketing and PR
+pgsql-announce     yes     Announcements about PostgreSQL and third-party software
+pgsql-bugs         yes     PostgreSQL bug reports
+pgsql-docs         yes     PostgreSQL documentation
+pgsql-general      yes     General discussion area for users
+pgsql-gui-dev      yes     Development of GUI tools for PostgreSQL
+pgsql-hackers      yes     PostgreSQL developer discussion
+pgsql-interfaces   yes     PostgreSQL interfaces, except JDBC and ODBC
+pgsql-jobs         yes     PostgreSQL related job postings
+pgsql-novice       yes     Beginner-friendly help for PostgreSQL users
+pgsql-performance  yes     PostgreSQL performance issues
+pgsql-sql          yes     SQL-related matters for users
+pgsql-translators  yes     Translation announcements, coordination and discussion
+pgsql-women        yes     Increasing the number of women in the community
+pgsql-www          yes     Development and coordination of the PostgreSQL websites
+```
 
 ## Log in
 
-```sh
-horton login --host https://app.pglantern.com
+To put your key behind every command, log in once:
+
+```sh skip=interactive-prompt
+lantern login --host https://pglantern.com
 ```
 
 This prompts for the key you minted above, validates it against the server, then stores it —
-with the host — in `~/.config/horton/config.json` (mode `0600`). `horton logout` deletes the
-file. For scripts, pipe the key in instead: `horton login --with-token < key.txt`.
+with the host — in `~/.config/lantern/config.json` (mode `0600`). `lantern logout` deletes the
+file. For scripts, pipe the key in instead: `lantern login --with-token < key.txt`. The
+`LANTERN_HOST` / `LANTERN_API_KEY` environment variables override the config file when set.
 
-Once logged in, host and key are implicit on every command — no more repeating headers and URLs:
+Once logged in, host and key are implicit on every command — no more repeating headers and
+URLs:
 
 <Tabs>
 <TabItem label="curl">
 
-```sh
+```sh check=lists-curl-tab
 curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
-  https://app.pglantern.com/api/v1/lists
+  https://pglantern.com/api/v1/lists | jq -r '.data[].name'
 ```
 
 </TabItem>
-<TabItem label="horton">
+<TabItem label="lantern">
 
-```sh
-horton lists
+```sh check=lists-cli-tab
+lantern lists
 ```
 
 </TabItem>
 </Tabs>
 
-Every command renders a human-readable table by default; add `--json` for the raw response body:
+Every command renders a human-readable table by default; add `--json` for the raw response
+body:
 
-```sh
-horton lists --json | jq '.data[].name'
+```sh check=cli-lists-json
+lantern lists --json | jq -r '.data[].name' | head -5
+```
+
+```txt output=cli-lists-json
+buildfarm-members
+pgsql-admin
+pgsql-advocacy
+pgsql-announce
+pgsql-bugs
 ```
 
 ## Next
