@@ -1,3 +1,11 @@
+## Writing documentation
+
+Read [docs/authoring.md](docs/authoring.md) before writing or editing any docs page — it is
+the complete reference: voice, file layout, the validated-example annotation format
+(`check=`/`output=`/`skip=`), the frozen corpus examples are authored from, and the
+capture/validation workflow. Every `curl`/`lantern` example must be validated; unannotated
+command blocks fail the build.
+
 ## Development
 
 When starting the dev server, use background mode:

@@ -38,36 +38,18 @@ export default defineConfig({
 					items: [
 						{ label: 'Getting started', slug: 'getting-started' },
 						{
-							label: 'Concepts',
+							label: 'Examples',
 							items: [
-								{ label: 'Authentication', slug: 'concepts/authentication' },
-								{ label: 'Pagination', slug: 'concepts/pagination' },
-								{ label: 'Message-Ids', slug: 'concepts/message-ids' },
-								{ label: 'Threading', slug: 'concepts/threading' },
-								{ label: 'Errors', slug: 'concepts/errors' },
+								{ label: 'Full-text search', slug: 'examples/search' },
+								{ label: 'Commits and discussions', slug: 'examples/correlation' },
+								{ label: 'Pagination', slug: 'examples/pagination' },
 							],
 						},
-						{ label: 'Search guide', slug: 'guides/search' },
-						{ label: 'Correlation guide', slug: 'guides/correlation' },
-						{ label: 'Connect via MCP', slug: 'guides/mcp' },
-						{ label: 'Cookbook', slug: 'cookbook' },
 					],
 				},
 				{
 					label: 'Reference',
-					items: [
-						{ label: 'CLI overview', slug: 'cli' },
-						{ label: 'CLI commands', slug: 'cli/commands' },
-						...openAPISidebarGroups,
-					],
-				},
-				{
-					label: 'Policies',
-					items: [
-						{ label: 'Versioning', slug: 'policies/versioning' },
-						{ label: 'Error codes', slug: 'policies/errors' },
-						{ label: 'Data & limits', slug: 'policies/data' },
-					],
+					items: [...openAPISidebarGroups],
 				},
 			],
 		}),

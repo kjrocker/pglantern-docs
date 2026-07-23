@@ -134,8 +134,8 @@ curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
 ```
 
 Default order is relevance (capped at 200 results); `sort=sent_at` switches to the uncapped,
-index-backed recency ordering. See the [search guide](/guides/search/) for the full filter set
-(`list`, `from`/`to`, `sender`, `committed`, `path`, …).
+index-backed recency ordering. See the [search examples](/examples/search/) for the full filter
+set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
 
 ### Fetch one sender
 
@@ -159,8 +159,8 @@ curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
 }
 ```
 
-A bad key gets a `401` in the standard [error envelope](/policies/errors/); an unknown id gets
-a `404` in the same shape.
+A bad key gets a `401` in the standard error envelope; an unknown id gets a `404` in the same
+shape.
 
 ## Install lantern
 
@@ -253,7 +253,7 @@ pgsql-bugs
 
 ## Next
 
-- [CLI commands reference](/cli/commands/) for the full command surface.
-- [Search guide](/guides/search/) for ranking, filters, and `sort=sent_at`.
-- [Authentication](/concepts/authentication/) for key lifecycle and failure modes.
-- [Pagination](/concepts/pagination/) for cursor mechanics on list endpoints.
+- [Full-text search](/examples/search/) for ranking, filters, and `sort=sent_at`.
+- [Commits and discussions](/examples/correlation/) for the mail ↔ commit ↔ GUC graph.
+- [Pagination](/examples/pagination/) for cursor mechanics on list endpoints.
+- [API reference](/reference/api/) for every endpoint, parameter, and response schema.

@@ -1,0 +1,204 @@
+---
+title: Full-text search
+description: Query semantics of GET /search — the pg text search config, relevance vs sent_at ordering, and the linkage and metadata filters.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+`GET /search` runs full-text search over message subjects and bodies. `q` is matched with
+`plainto_tsquery('pg', $q)` against a `tsvector` built as `setweight(subject, 'A') ||
+setweight(body_text, 'D')` — subject hits outrank body hits. Everything else on this page is
+a filter that composes with `q` as `AND`.
+
+All examples assume a key in `$HORTON_API_KEY` (see [getting started](/getting-started/));
+every output block was captured against the archive as of 2026-01-01.
+
+<Tabs>
+<TabItem label="curl">
+
+```sh check=first-curl
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q=incremental+backup&list=pgsql-hackers&limit=3" \
+  | jq -r '.data[] | [.sent_at, .sender.display_name, .subject] | @tsv'
+```
+
+```txt output=first-curl
+2019-04-10T15:31:53Z	Robert Haas	Re: block-level incremental backup
+2019-08-30T13:21:50Z	Jeevan Ladhe	Re: block-level incremental backup
+2019-04-17T22:43:10Z	Stephen Frost	Re: block-level incremental backup
+```
+
+</TabItem>
+<TabItem label="lantern">
+
+```sh check=first-cli
+lantern search incremental backup --list pgsql-hackers --limit 3
+```
+
+```txt output=first-cli
+SENT AT               FROM                                          SUBJECT                             MESSAGE-ID
+2019-04-10T15:31:53Z  Robert Haas <robertmhaas@gmail.com>           Re: block-level incremental backup  CA+TgmoZrqdV-tB8nY9P+1pQLqKXp5f1afghuoHh5QT6ewdkJ6g@mail.gmail.com
+2019-08-30T13:21:50Z  Jeevan Ladhe <jeevan.ladhe@enterprisedb.com>  Re: block-level incremental backup  CAOgcT0MF5RpWcTHrepYx84PQfHHsjzVSD-ZsJNahTNenekD3zw@mail.gmail.com
+2019-04-17T22:43:10Z  Stephen Frost <sfrost@snowman.net>            Re: block-level incremental backup  20190417224309.GH6197@tamriel.snowman.net
+```
+
+</TabItem>
+</Tabs>
+
+A blank or missing `q` is `invalid_query` (400), in the standard error envelope:
+
+```sh check=blank-q
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q="
+```
+
+```json output=blank-q
+{"error":{"code":"invalid_query","message":"A non-blank search query (q) is required."}}
+```
+
+## The `pg` text search config
+
+`'pg'` is a custom text search configuration, not the built-in `'english'` — Snowball stemming
+plus a domain synonym map and noise filtering, so queries match the way this corpus is
+actually written:
+
+- **Product-name spellings collapse to one token** — `postgres`, `postgresql`, and `pgsql`
+  normalize to the same lexeme.
+- **pgsql-hackers shorthand expands to the full term** — `autovac` → `autovacuum`, `xact` →
+  `transaction`, `idx` → `index`.
+- **Loanword plurals unify with their singular** — `indices` matches `index`, `schemata`
+  matches `schema`; plain Snowball can't reduce these.
+- **Noise stays out of the index** — email addresses, URLs, and bare numbers don't contribute
+  to matches or rank.
+
+The synonym map is observable from the hit counts — each pair below is the same query after
+normalization:
+
+```sh check=synonyms
+for q in indices index autovac autovacuum; do
+  printf '%-12s' "$q"
+  curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+    "https://pglantern.com/api/v1/search?q=$q&limit=1" | jq .total
+done
+```
+
+```txt output=synonyms
+indices     169832
+index       169832
+autovac     26867
+autovacuum  26867
+```
+
+<Aside type="tip">
+The bare token `pg` is deliberately **not** mapped to `postgresql` — the parser splits
+identifiers like `pg_stat_activity` into a bare `pg` token, and folding it into the product
+synonym would match nearly every message that mentions a `pg_*` symbol.
+</Aside>
+
+## Relevance vs `sort=sent_at`
+
+Default order is relevance: `ts_rank_cd` descending, ties broken by `sent_at` and `id`
+descending. The rank isn't index-backed — it's computed over candidate rows at query time —
+so relevance search is **capped at 200 results**. `sort=sent_at` switches to the index-backed
+`(sent_at, id)` keyset order: uncapped, bidirectional, no rank computation.
+
+```sh check=relevance-vs-recency
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q=vacuum+truncate&limit=1" \
+  | jq '{order: "relevance", total, top: .data[0].subject}'
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q=vacuum+truncate&sort=sent_at&limit=1" \
+  | jq '{order: "sent_at", total, newest: .data[0].subject}'
+```
+
+```json output=relevance-vs-recency
+{
+  "order": "relevance",
+  "total": 5262,
+  "top": "[PATCH v5 1/1] Add vacuum_truncate configuration parameter."
+}
+{
+  "order": "sent_at",
+  "total": 5262,
+  "newest": "Re: How did VACUUM ANALYZE reclaim large TOAST bloat at disk level in\n PostgreSQL 16?"
+}
+```
+
+Use relevance for "the best few matches"; use `sort=sent_at` for an exhaustive pull — a
+backfill, or any query broad enough that 200 ranked hits would silently truncate it. The two
+orders also paginate differently: see [pagination](/examples/pagination/) for the query-hash
+binding on relevance cursors.
+
+## Linkage filters: `committed`, `path`, `major`
+
+These filter on outcomes recorded against the message's *thread* via `Discussion:`
+commit-trailer links — whether it landed a commit, what that commit touched, where it first
+shipped:
+
+```sh check=linkage-filters
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  --get --data-urlencode "q=vacuum truncate" \
+  --data-urlencode "committed=true" \
+  --data-urlencode "path=src/backend/commands/" \
+  --data-urlencode "major=18" \
+  --data-urlencode "limit=3" \
+  "https://pglantern.com/api/v1/search" \
+  | jq -r '.data[] | [.sent_at, .subject] | @tsv'
+```
+
+```txt output=linkage-filters
+2025-03-16T00:14:14Z	Re: Disabling vacuum truncate for autovacuum
+2025-03-21T15:50:31Z	Re: Disabling vacuum truncate for autovacuum
+2025-03-20T21:18:33Z	Re: Disabling vacuum truncate for autovacuum
+```
+
+Every hit above sits in a thread that landed a commit, first shipped in 18, touching
+`src/backend/commands/`. The same query as a CLI call:
+
+```sh check=linkage-cli
+lantern search vacuum truncate --committed --path src/backend/commands/ --major 18 --limit 3 --json \
+  | jq -r '.data[].subject'
+```
+
+```txt output=linkage-cli
+Re: Disabling vacuum truncate for autovacuum
+Re: Disabling vacuum truncate for autovacuum
+Re: Disabling vacuum truncate for autovacuum
+```
+
+A `major` that isn't a real branch, or a non-boolean `committed`, is `invalid_params` (422)
+with the offending field named in `details.param`.
+
+## Metadata filters: `sender`, `from`/`to`, `list`
+
+`sender` is a case-insensitive substring over the sender's email or display name; `from`/`to`
+are ISO-8601 bounds on `sent_at`; `list` restricts to one mailing list:
+
+```sh check=metadata-filters
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  --get --data-urlencode "q=vacuum" \
+  --data-urlencode "sender=bossart" \
+  --data-urlencode "from=2025-01-01" \
+  --data-urlencode "to=2025-06-30" \
+  --data-urlencode "sort=sent_at" \
+  --data-urlencode "limit=3" \
+  "https://pglantern.com/api/v1/search" \
+  | jq -r '.data[] | [.sent_at, .sender.email, .subject] | @tsv'
+```
+
+```txt output=metadata-filters
+2025-06-27T19:33:30Z	nathan@postgresql.org	[PATCH v6 1/1] Document pg_get_multixact_members().
+2025-06-25T15:21:03Z	nathandbossart@gmail.com	Re: Fixes inconsistent behavior in vacuum when it processes multiple\n relations
+2025-06-24T18:21:56Z	nathandbossart@gmail.com	Re: problems with toast.* reloptions
+```
+
+Composing `sender` with `sort=sent_at` is the "one person's history on a topic" recipe —
+exhaustive and chronological, not capped at 200.
+
+## Next
+
+- [Pagination](/examples/pagination/) — cursor mechanics, including the relevance-cursor cap
+  and query binding.
+- [Commits and discussions](/examples/correlation/) — follow a search hit to the commit it
+  produced.
+- [API reference](/reference/api/) — every parameter of `GET /search`.

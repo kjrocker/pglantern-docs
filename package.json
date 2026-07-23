@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "examples:check": "node scripts/validate-examples.mjs",
+    "prebuild": "npm run examples:check",
+    "examples:check": "node scripts/validate-examples.mjs --strict",
     "examples:update": "node scripts/validate-examples.mjs --update"
   },
   "dependencies": {

@@ -1,0 +1,158 @@
+---
+title: Pagination
+description: Keyset cursors on every list endpoint — opaque tokens, composite ordering, the error envelope, and the query binding on relevance cursors.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every list endpoint (`/messages`, `/search`, `/threads`, `/senders`, `/commits`,
+`/attachments`, `/imports`) is keyset-paginated. There is no offset or page-number
+pagination anywhere in the API. A page carries `next_cursor` and `prev_cursor` — opaque
+strings, either `null` when there's no further page in that direction — and you hand one
+back as `?after=` or `?before=`.
+
+All examples assume a key in `$HORTON_API_KEY`; outputs were captured against the archive as
+of 2026-01-01, which is what makes the literal cursors below reproducible.
+
+## Walk a collection
+
+Page one — newest pgsql-hackers traffic at the corpus cutoff, three at a time:
+
+```sh check=page-one
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages?list=pgsql-hackers&limit=3" \
+  | jq '{subjects: [.data[].subject], prev_cursor, next_cursor}'
+```
+
+```json output=page-one
+{
+  "subjects": [
+    "Re: Planner : anti-join on left joins",
+    "Re: Planner : anti-join on left joins",
+    "Re: PL/Python initialization cleanup"
+  ],
+  "prev_cursor": null,
+  "next_cursor": "g3QAAAABdwF2bAAAAAJuBwBAQU3sR0cGYgARbnJq"
+}
+```
+
+`prev_cursor` is `null` — this is the first page. Feed `next_cursor` back as `?after=` for
+page two:
+
+```sh check=page-two
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages?list=pgsql-hackers&limit=3&after=g3QAAAABdwF2bAAAAAJuBwBAQU3sR0cGYgARbnJq" \
+  | jq '{subjects: [.data[].subject], prev_cursor, next_cursor}'
+```
+
+```json output=page-two
+{
+  "subjects": [
+    "Create unique GiST indexes",
+    "Re: WIP - xmlvalidate implementation from TODO list",
+    "Re: Can we remove support for standard_conforming_strings = off yet?"
+  ],
+  "prev_cursor": "g3QAAAABdwF2bAAAAAJuBwBAVnFeR0cGYgACyJFq",
+  "next_cursor": "g3QAAAABdwF2bAAAAAJuBwAArogZREcGYgARbm9q"
+}
+```
+
+Both cursors are now populated: `?after=next_cursor` continues forward, `?before=prev_cursor`
+walks back to page one. Repeat until the cursor comes back `null`.
+
+<Aside type="caution">
+Cursors are opaque. Don't decode, parse, or construct them — the encoding is an
+implementation detail that can change between releases. The only supported operations are
+"hand back a cursor you were given" and "compare it to `null`."
+</Aside>
+
+## Ordering is always composite
+
+The tuple behind a cursor is never a bare timestamp. `sent_at` is `timestamptz` and collides
+— same-batch arrivals, normalized missing `Date` headers — so every keyset order is at
+minimum `(sent_at, id)`, tie-broken on the unique surrogate `id`. `sent_at` alone would
+silently skip or duplicate rows sharing a timestamp across a page boundary.
+
+## `limit` and the error envelope
+
+`?limit=` bounds the page size: the default is 25, the max is 100. Out of range is
+`invalid_params` (422), with the offending field named in `details.param`:
+
+```sh check=limit-error
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages?limit=1000"
+```
+
+```json output=limit-error
+{"error":{"code":"invalid_params","message":"The 'limit' parameter must be an integer between 1 and 100.","details":{"param":"limit"}}}
+```
+
+Setting both `after` and `before` on one request is also `invalid_params` (422); a tampered
+or truncated cursor is `invalid_cursor` (400):
+
+```sh check=cursor-error
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages?after=not-a-cursor"
+```
+
+```json output=cursor-error
+{"error":{"code":"invalid_cursor","message":"The pagination cursor is not valid."}}
+```
+
+## Relevance cursors are query-scoped
+
+`/search`'s default relevance order ranks with `ts_rank_cd`, computed per query at request
+time — so a relevance cursor is only meaningful for the exact `q` that produced it, and the
+cursor embeds a hash of the normalized query to enforce that. Take a cursor from one query
+and replay it against another:
+
+```sh check=cursor-rebind
+cursor=$(curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q=vacuum&limit=2" | jq -r '.next_cursor')
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/search?q=index&limit=2&after=$cursor"
+```
+
+```json output=cursor-rebind
+{"error":{"code":"invalid_cursor","message":"The pagination cursor is not valid."}}
+```
+
+Rejected outright — never a silently mixed result set. Relevance paging is also forward-only
+(`prev_cursor` is always `null`) and capped at 200 results total; `next_cursor` stops
+appearing at the cap. The `(sent_at, id)` cursors used by list endpoints and `?sort=sent_at`
+carry no query binding, page bidirectionally, and are uncapped — switch to `sort=sent_at`
+(or narrow `q`) to page deep. See [full-text search](/examples/search/) for when each order
+is the right tool.
+
+## Cursors in the CLI
+
+Paginated `lantern` commands print the next-page cursor to **stderr**, so tables and
+`--json` stay pipe-clean, and take it back via `--after`:
+
+```sh check=cli-cursor stderr
+lantern messages --list pgsql-hackers --limit 3 >/dev/null
+```
+
+```txt output=cli-cursor
+# next: --after g3QAAAABdwF2bAAAAAJuBwBAQU3sR0cGYgARbnJq
+```
+
+For bulk pulls, `--all` follows `next_cursor` server-side page by page, bounded by `--max`
+(default 5000 rows) — a fetch loop you don't have to write:
+
+```sh check=cli-all
+lantern messages --list pgsql-hackers --from 2025-12-29 --all --max 500 --json \
+  | jq -s 'map(.data | length) | {pages: length, rows: add}'
+```
+
+```json output=cli-all
+{
+  "pages": 3,
+  "rows": 223
+}
+```
+
+## Next
+
+- [Full-text search](/examples/search/) — relevance vs `sort=sent_at` in practice.
+- [API reference](/reference/api/) — cursor parameters on every list endpoint.

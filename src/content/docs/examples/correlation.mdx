@@ -1,0 +1,312 @@
+---
+title: Commits and discussions
+description: Walk the graph linking mail, commits, patches, and GUCs — commit → thread, message → commits, refs, and version provenance.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The archive isn't just messages — it's a graph. A thread argues a change, a patch attachment
+carries the diff, a commit lands citing the thread in its `Discussion:` trailer, and the GUC
+catalog remembers which major shipped it. Every edge below is a join the pipeline computed at
+ingest, so you don't grep commit logs against mbox files by hand.
+
+This page follows one real change end to end: `vacuum_truncate`, the Postgres 18 GUC. In
+December 2024, Will Storey asked on pgsql-general about disabling autovacuum's
+end-of-table truncation after it caused an outage on a hot standby. Three months and 34
+messages later, Nathan Bossart committed the parameter. Every step of that arc is queryable.
+
+All examples assume a key in `$HORTON_API_KEY`; outputs were captured against the archive as
+of 2026-01-01.
+
+## Start from the version diff
+
+`GET /versions/:major/gucs?changed_since=<major>` diffs two GUC catalogs into four buckets —
+`added`, `removed`, `default_changed`, `context_changed` — and decorates each row,
+best-effort, with the commit that changed it and the thread that argued the commit:
+
+```sh check=guc-diff
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/versions/18/gucs?changed_since=17" \
+  | jq '.data.added[] | select(.name == "vacuum_truncate")'
+```
+
+```json output=guc-diff
+{
+  "name": "vacuum_truncate",
+  "thread": {
+    "message_id": "Z2DE4lDX4tHqNGZt@dev.null",
+    "thread_id": "ae378020-05b1-5e67-900e-65c8d2581855"
+  },
+  "context": "user",
+  "category": "Vacuuming / Default Behavior",
+  "commit": {
+    "sha": "0164a0f9ee12e0eff9e4c661358a272ecd65c2d4",
+    "subject": "Add vacuum_truncate configuration parameter.",
+    "committed_at": "2025-03-20T15:16:50.000000Z"
+  },
+  "short_desc": "Enables vacuum to truncate empty pages at the end of the table.",
+  "vartype": "bool",
+  "boot_val": "on"
+}
+```
+
+That one response hands you the two ids the rest of this page pulls on: the commit sha and
+the thread's `message_id`. (`commit` and `thread` are nullable — not every catalog change
+traces back to an archived discussion. A diff between majors where either side has no
+committed catalog is `422`; an unknown major is `404`.)
+
+The buckets themselves answer the flagship DBA question — "what changed between 17 and 18":
+
+```sh check=guc-diff-summary
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/versions/18/gucs?changed_since=17" \
+  | jq '{added: (.data.added | length),
+         removed: (.data.removed | length),
+         default_changed: [.data.default_changed[] | {name, from, to}]}'
+```
+
+```json output=guc-diff-summary
+{
+  "added": 21,
+  "removed": 2,
+  "default_changed": [
+    {
+      "name": "effective_io_concurrency",
+      "from": "1",
+      "to": "16"
+    },
+    {
+      "name": "log_connections",
+      "from": "off",
+      "to": ""
+    },
+    {
+      "name": "maintenance_io_concurrency",
+      "from": "10",
+      "to": "16"
+    },
+    {
+      "name": "server_version",
+      "from": "17.10 (Debian 17.10-1.pgdg13+1)",
+      "to": "18.4 (Debian 18.4-1.pgdg13+1)"
+    },
+    {
+      "name": "server_version_num",
+      "from": "170010",
+      "to": "180004"
+    }
+  ]
+}
+```
+
+`effective_io_concurrency` jumping from `1` to `16` is exactly the kind of change you want
+the argument for — and its row carries the commit and thread to go read it.
+
+## Commit → discussion
+
+`GET /commits/:sha/thread` takes a full 40-hex sha and returns the threads that argued it,
+each flat and ordered `sent_at ASC`:
+
+```sh check=commit-thread
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/commits/0164a0f9ee12e0eff9e4c661358a272ecd65c2d4/thread" \
+  | jq '{commit: .data.commit.subject,
+         releases: .data.commit.releases,
+         thread: (.data.threads[0] | {thread_id,
+                                      messages: (.messages | length),
+                                      first: .messages[0] | {subject, from: .sender.display_name, sent_at},
+                                      last:  .messages[-1] | {subject, from: .sender.display_name, sent_at}})}'
+```
+
+```json output=commit-thread
+{
+  "commit": "Add vacuum_truncate configuration parameter.",
+  "releases": [
+    {
+      "branch": "REL_18_STABLE",
+      "first_tag": "REL_18_0"
+    }
+  ],
+  "thread": {
+    "thread_id": "ae378020-05b1-5e67-900e-65c8d2581855",
+    "messages": 34,
+    "first": {
+      "subject": "Disabling vacuum truncate for autovacuum",
+      "from": "Will Storey",
+      "sent_at": "2024-12-17T00:25:06Z"
+    },
+    "last": {
+      "subject": "Re: Disabling vacuum truncate for autovacuum",
+      "from": "Nathan Bossart",
+      "sent_at": "2025-03-24T20:47:42Z"
+    }
+  }
+}
+```
+
+A user's outage report on pgsql-general in December, a committed parameter in March — the
+whole argument is the 34 messages in between (`lantern commits thread <sha>` prints them as
+a table). An abbreviated sha is `400`, never prefix-resolved; a commit with no linked thread
+returns `threads: []`, not `404`. `unresolved_refs` lists `Discussion:` targets that don't
+resolve to an ingested message — a phantom link is surfaced as data, not hidden.
+
+## Message → commits
+
+The reverse edge: given any message in a thread, what landed. The id in the URL is the raw
+`Message-Id`, percent-encoded (the CLI encodes for you: `lantern messages commits '<id>'`).
+The walk covers the *whole thread*, so the first message of the conversation finds commits
+cited by the last:
+
+```sh check=message-commits
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages/Z2DE4lDX4tHqNGZt%40dev.null/commits" \
+  | jq '[.data[] | {subject,
+                    shas: [.commits[] | .sha[0:10]],
+                    first_tag: .commits[0].releases[0].first_tag}]'
+```
+
+```json output=message-commits
+[
+  {
+    "subject": "Expand comment for isset_offset.",
+    "shas": [
+      "7d559c8580"
+    ],
+    "first_tag": "REL_18_0"
+  },
+  {
+    "subject": "Add vacuum_truncate configuration parameter.",
+    "shas": [
+      "0164a0f9ee"
+    ],
+    "first_tag": "REL_18_0"
+  }
+]
+```
+
+Commits are grouped by subject so backpatch siblings — the same fix cherry-picked across
+stable branches — present together, and each commit carries `releases`: every branch it
+shipped on and the first tag containing it. "Is this in 18.0" is a field, not another query.
+An empty `data` array means the thread never landed anything.
+
+## Message → refs
+
+`GET /messages/:id/refs` is the raw material one level down — the code-shaped tokens pulled
+out of a message body before they're resolved into commits. A commit-announcement mail makes
+a compact example:
+
+```sh check=message-refs
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages/E1va3GH-003FBe-35%40gemulon.postgresql.org/refs" \
+  | jq -c '.data[]'
+```
+
+```json output=message-refs
+{"value":"7e9f852a79fe19d4d0f18aabc32a620797fb676e","ref_type":"commit_sha","resolved_sha":"7e9f852a79fe19d4d0f18aabc32a620797fb676e"}
+{"value":"src/backend/utils/adt/selfuncs.c","ref_type":"file_path","resolved_sha":null}
+{"value":"src/test/regress/sql/join.sql","ref_type":"file_path","resolved_sha":null}
+{"value":"62af586c-c270-44f3-9c5e-02c81d537e3d.gehaowu@bitmoe.com","ref_type":"msgid_url","resolved_sha":null}
+```
+
+`ref_type` is one of `commit_sha`, `file_path`, `msgid_url`, or `cve`. A `commit_sha` ref
+carries `resolved_sha` — `null` means the cited sha isn't in the ingested history, a phantom
+ref reported rather than dropped.
+
+## Path → activity → patch
+
+`GET /source/activity?path=<prefix>` is the entry point when you start from the source tree:
+commits touching the prefix unioned with messages that attach a patch touching it or cite a
+file under it, newest first:
+
+```sh check=source-activity
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  --get --data-urlencode "path=src/backend/utils/misc/" --data-urlencode "limit=3" \
+  "https://pglantern.com/api/v1/source/activity" \
+  | jq -r '.data[] | [.kind, .activity_at, .subject] | @tsv'
+```
+
+```txt output=source-activity
+message	2025-12-30T22:50:10Z	Re: Can we remove support for standard_conforming_strings = off yet?
+message	2025-12-30T15:04:45Z	Re: Asynchronous MergeAppend
+message	2025-12-30T01:05:53Z	Re: [PATCH] Allow complex data for GUC extra.
+```
+
+The newest activity on the GUC machinery's own directory (as of the corpus cutoff): Tom Lane
+proposing to remove support for `standard_conforming_strings = off`. That message carries a
+patch series, and `GET /attachments/:id/patch` returns what the pipeline parsed out of each
+diff-shaped attachment — format, series position, and a hunk-accurate per-file diffstat:
+
+```sh check=attachment-patch
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/messages/3730915.1767135010%40sss.pgh.pa.us" \
+  | jq '[.data.attachments[] | {id, filename}]'
+```
+
+```json output=attachment-patch
+[
+  {
+    "id": 146640,
+    "filename": "v1-0001-Force-standard_conforming_strings-to-always-be-ON.patch"
+  },
+  {
+    "id": 146641,
+    "filename": "v1-0002-Remove-server-side-support-for-standard_conformin.patch"
+  },
+  {
+    "id": 146642,
+    "filename": "v1-0003-Adjust-pg_dump-and-pg_dumpall-for-standard_confor.patch"
+  },
+  {
+    "id": 146643,
+    "filename": "v1-0004-Remove-escape_string_warning.patch"
+  }
+]
+```
+
+```sh check=patch-parse
+curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+  "https://pglantern.com/api/v1/attachments/146643/patch" \
+  | jq '{subject: .data.subject,
+         format: .data.format,
+         series: [.data.series_version, .data.series_seq],
+         files: [.data.files[] | "\(.path) +\(.additions) -\(.deletions)"]}'
+```
+
+```json output=patch-parse
+{
+  "subject": "Remove escape_string_warning.",
+  "format": "format-patch",
+  "series": [
+    1,
+    4
+  ],
+  "files": [
+    "contrib/hstore/expected/hstore.out +0 -1",
+    "contrib/hstore/sql/hstore.sql +0 -2",
+    "doc/src/sgml/config.sgml +0 -15",
+    "src/backend/utils/misc/guc_parameters.dat +0 -6",
+    "src/backend/utils/misc/guc_tables.c +0 -1",
+    "src/backend/utils/misc/postgresql.conf.sample +0 -1",
+    "src/bin/pg_dump/pg_backup_archiver.c +0 -2",
+    "src/fe_utils/string_utils.c +2 -2",
+    "src/test/regress/expected/strings.out +0 -32",
+    "src/test/regress/sql/strings.sql +0 -19"
+  ]
+}
+```
+
+Patch 4 of the v1 series, deleting `escape_string_warning` — 81 lines removed across GUC
+tables, docs, and regression tests, counted per hunk, so the patch's commit-message preamble
+and mail signature don't inflate the numbers. `404` here covers both "no such attachment"
+and "not a patch"; check `is_patch` on the attachment record to distinguish up front.
+
+<Aside type="note">
+The API returns patch *metadata*, never attachment bytes — pull the actual diff from the
+upstream archive via the message's `archive_url`.
+</Aside>
+
+## Next
+
+- [Full-text search](/examples/search/) — `committed`, `path`, and `major` run these same
+  thread-level joins as search filters.
+- [API reference](/reference/api/) — full schemas for every edge on this page.
