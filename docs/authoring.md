@@ -10,9 +10,7 @@ before writing.
 
 Every `curl` and `lantern` command shown in these docs carries a guarantee: **the exact
 command was executed against a real server, and the output block next to it is the captured
-output of that run.** No invented data — no `example.com`, no sender `42`, no `aaaa…1` shas.
-Examples are authored *from* the corpus (real threads, real commits, real GUCs), so clicking
-through to the live site works and the output blocks regenerate byte-for-byte.
+output of that run.** Examples are based on real data that is frozen at January 1st, 2026.
 
 Validation is enforced: an `sh`/`bash` fence containing `curl` or `lantern` that carries no
 annotation fails `npm run examples:check` (strict lint), which runs as `prebuild` — a broken
@@ -20,10 +18,7 @@ or unannotated example blocks `npm run build`.
 
 ## Who you're writing for
 
-A working Postgres practitioner — fluent in SQL, `EXPLAIN`, MVCC, `curl`, and JSON; already
-sold on Postgres; here because they want the mailing lists as structured, queryable data, not
-another web archive. The API is the product. Full profile: `docs/ideal-customer-profile.md`
-in the pgml-api repo.
+A working Postgres user who is comfortable in the terminal. Full profile: `docs/ideal-customer-profile.md` in the pgml-api repo.
 
 Voice rules that follow from it:
 
@@ -32,7 +27,7 @@ Voice rules that follow from it:
 - Dense, direct, sentence-case headings. Real Postgres vocabulary (`ts_rank_cd`, keyset
   pagination, `Discussion:` trailer) used correctly and without a glossary.
 - Concrete and honest about limits: relevance search caps at 200; the API returns metadata,
-  never attachment bytes; "free" still requires registration.
+  not attachment bytes; "free" still requires registration.
 - Surface quirks as facts, not apologies (a phantom ref is "data, not an error").
 
 ## Where a page goes
