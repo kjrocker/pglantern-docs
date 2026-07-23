@@ -4,7 +4,7 @@ The reference for writing pgLantern docs pages. A prompt like "create documentat
 `docs/authoring.md` about `<feature>`" should need nothing else: follow this file top to
 bottom and the result will be a page that renders, validates, and reads like the rest of the
 site. The three pages under `src/content/docs/examples/` are the house style — read one
-before writing.
+before writing; `search.mdx` is the calibration for how much detail a page carries.
 
 ## The contract
 
@@ -24,11 +24,42 @@ Voice rules that follow from it:
 
 - Lead with the endpoint and a runnable command, not an adjective. No "Welcome to", no
   exclamation points, no explaining what a mailing list or a bearer token is.
-- Dense, direct, sentence-case headings. Real Postgres vocabulary (`ts_rank_cd`, keyset
-  pagination, `Discussion:` trailer) used correctly and without a glossary.
+- Clear and direct, sentence-case headings. Real Postgres vocabulary (keyset pagination,
+  `Discussion:` trailer) used correctly and without a glossary. But the reader knows
+  Postgres, not *this* system — don't reach for internal names to sound precise.
 - Concrete and honest about limits: relevance search caps at 200; the API returns metadata,
   not attachment bytes; "free" still requires registration.
 - Surface quirks as facts, not apologies (a phantom ref is "data, not an error").
+
+## How much to say
+
+Write for someone who needs to *predict* what the API will do, not audit how it was built.
+The test for a sentence: does it change a command the reader would write, or an outcome they
+would expect? If not, cut it. Technical audience is not a license for density — it means you
+can skip the tutorial, not that you should pack in everything true.
+
+Never hold back:
+
+- Caps, limits, and quotas — relevance search stops at 200 results.
+- Error codes and what triggers them.
+- Behavior that would otherwise surprise — a relevance cursor doesn't survive a changed `q`;
+  `commit` and `thread` are nullable.
+- The tradeoff behind an option, stated as the choice the reader makes ("use `sort=sent_at`
+  for an exhaustive pull"), not as the mechanism that causes it.
+
+Leave out:
+
+- The SQL behind an endpoint — `tsvector` weights, the exact `plainto_tsquery` call, which
+  index backs a sort. "Subject hits outrank body hits" is the fact the reader needs; the
+  `setweight` expression is trivia.
+- Unrequested justification: why the implementation is what it is, what a naive version would
+  get wrong, how stock Postgres would compare.
+- Exhaustiveness where a shorter true statement does the same work — "ties broken by
+  `sent_at`" over "ties broken by `sent_at` and `id` descending".
+
+One clear sentence beats a precise clause pile. Prefer the plain word (a "modified" text
+search config) over the term of art (Snowball stemming with a synonym map) when the plain
+word supports the same prediction.
 
 ## Where a page goes
 
@@ -39,7 +70,8 @@ Voice rules that follow from it:
   search and social cards).
 - Components: `import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';`
   Use `<Aside>` for caveats worth a colored box, `<Tabs>` for curl/lantern pairs of the same
-  call. Don't overdo either.
+  call. Don't overdo either. An aside is a sentence or two — the caveat and its consequence,
+  not the reasoning that arrives at it.
 - Sidebar: register the page in `astro.config.mjs` under the right group, or it won't appear
   in navigation. Cross-link related pages in prose and in a short `## Next` list at the end.
 
@@ -70,7 +102,7 @@ Rules:
 
 Environment the harness injects (and the reader is told to set up in getting-started):
 
-- `$HORTON_API_KEY` — put `-H "Authorization: Bearer $HORTON_API_KEY"` on curl examples.
+- `$PGLANTERN_KEY` — put `-H "Authorization: Bearer $PGLANTERN_KEY"` on curl examples.
   `lantern` picks up `LANTERN_HOST`/`LANTERN_API_KEY` automatically — no flags needed.
 - Base URL: always the literal `https://pglantern.com`. The harness swaps it for the local
   corpus server before running and maps it back in captured output. Any other host string
@@ -135,8 +167,10 @@ whole suite.
 - [ ] Frontmatter `title` + `description`; page registered in the sidebar.
 - [ ] "Captured as of 2026-01-01" line near the top.
 - [ ] Every command block `check=` or `skip=<reason>`; names unique; base URL is
-      `https://pglantern.com`; auth via `$HORTON_API_KEY`.
+      `https://pglantern.com`; auth via `$PGLANTERN_KEY`.
 - [ ] Outputs captured by `examples:update`, not typed; `jq`-projected to stay small.
 - [ ] Prose claims match the captured outputs they sit next to.
+- [ ] Every limit, error, and surprise the reader needs is stated; no implementation detail
+      that doesn't change what they'd run or expect.
 - [ ] Cross-links to related pages plus a `## Next` list; no links to deleted pages.
 - [ ] `scripts/docs-validate.sh check` green.

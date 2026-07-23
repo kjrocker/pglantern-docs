@@ -15,7 +15,7 @@ December 2024, Will Storey asked on pgsql-general about disabling autovacuum's
 end-of-table truncation after it caused an outage on a hot standby. Three months and 34
 messages later, Nathan Bossart committed the parameter. Every step of that arc is queryable.
 
-All examples assume a key in `$HORTON_API_KEY`; outputs were captured against the archive as
+All examples assume a key in `$PGLANTERN_KEY`; outputs were captured against the archive as
 of 2026-01-01.
 
 ## Start from the version diff
@@ -25,7 +25,7 @@ of 2026-01-01.
 best-effort, with the commit that changed it and the thread that argued the commit:
 
 ```sh check=guc-diff
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/versions/18/gucs?changed_since=17" \
   | jq '.data.added[] | select(.name == "vacuum_truncate")'
 ```
@@ -58,7 +58,7 @@ committed catalog is `422`; an unknown major is `404`.)
 The buckets themselves answer the flagship DBA question — "what changed between 17 and 18":
 
 ```sh check=guc-diff-summary
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/versions/18/gucs?changed_since=17" \
   | jq '{added: (.data.added | length),
          removed: (.data.removed | length),
@@ -108,7 +108,7 @@ the argument for — and its row carries the commit and thread to go read it.
 each flat and ordered `sent_at ASC`:
 
 ```sh check=commit-thread
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/commits/0164a0f9ee12e0eff9e4c661358a272ecd65c2d4/thread" \
   | jq '{commit: .data.commit.subject,
          releases: .data.commit.releases,
@@ -158,7 +158,7 @@ The walk covers the *whole thread*, so the first message of the conversation fin
 cited by the last:
 
 ```sh check=message-commits
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages/Z2DE4lDX4tHqNGZt%40dev.null/commits" \
   | jq '[.data[] | {subject,
                     shas: [.commits[] | .sha[0:10]],
@@ -196,7 +196,7 @@ out of a message body before they're resolved into commits. A commit-announcemen
 a compact example:
 
 ```sh check=message-refs
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages/E1va3GH-003FBe-35%40gemulon.postgresql.org/refs" \
   | jq -c '.data[]'
 ```
@@ -219,7 +219,7 @@ commits touching the prefix unioned with messages that attach a patch touching i
 file under it, newest first:
 
 ```sh check=source-activity
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   --get --data-urlencode "path=src/backend/utils/misc/" --data-urlencode "limit=3" \
   "https://pglantern.com/api/v1/source/activity" \
   | jq -r '.data[] | [.kind, .activity_at, .subject] | @tsv'
@@ -237,7 +237,7 @@ patch series, and `GET /attachments/:id/patch` returns what the pipeline parsed 
 diff-shaped attachment — format, series position, and a hunk-accurate per-file diffstat:
 
 ```sh check=attachment-patch
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages/3730915.1767135010%40sss.pgh.pa.us" \
   | jq '[.data.attachments[] | {id, filename}]'
 ```
@@ -264,7 +264,7 @@ curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
 ```
 
 ```sh check=patch-parse
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/attachments/146643/patch" \
   | jq '{subject: .data.subject,
          format: .data.format,

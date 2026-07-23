@@ -62,7 +62,7 @@ X-API-Key: hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Export it once and reuse it in the examples below:
 
 ```sh
-export HORTON_API_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export PGLANTERN_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ## Two more curls
@@ -70,7 +70,7 @@ export HORTON_API_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### Full-text search
 
 ```sh check=search-slots
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/search?q=logical+replication+slot&list=pgsql-hackers&limit=2" | jq
 ```
 
@@ -140,7 +140,7 @@ set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
 ### Fetch one sender
 
 ```sh check=sender-get
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   https://pglantern.com/api/v1/senders/48 | jq '.data | {id, display_name, email, stats}'
 ```
 
@@ -222,7 +222,7 @@ URLs:
 <TabItem label="curl">
 
 ```sh check=lists-curl-tab
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   https://pglantern.com/api/v1/lists | jq -r '.data[].name'
 ```
 

@@ -11,7 +11,7 @@ pagination anywhere in the API. A page carries `next_cursor` and `prev_cursor` �
 strings, either `null` when there's no further page in that direction — and you hand one
 back as `?after=` or `?before=`.
 
-All examples assume a key in `$HORTON_API_KEY`; outputs were captured against the archive as
+All examples assume a key in `$PGLANTERN_KEY`; outputs were captured against the archive as
 of 2026-01-01, which is what makes the literal cursors below reproducible.
 
 ## Walk a collection
@@ -19,7 +19,7 @@ of 2026-01-01, which is what makes the literal cursors below reproducible.
 Page one — newest pgsql-hackers traffic at the corpus cutoff, three at a time:
 
 ```sh check=page-one
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages?list=pgsql-hackers&limit=3" \
   | jq '{subjects: [.data[].subject], prev_cursor, next_cursor}'
 ```
@@ -40,7 +40,7 @@ curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
 page two:
 
 ```sh check=page-two
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages?list=pgsql-hackers&limit=3&after=g3QAAAABdwF2bAAAAAJuBwBAQU3sR0cGYgARbnJq" \
   | jq '{subjects: [.data[].subject], prev_cursor, next_cursor}'
 ```
@@ -79,7 +79,7 @@ silently skip or duplicate rows sharing a timestamp across a page boundary.
 `invalid_params` (422), with the offending field named in `details.param`:
 
 ```sh check=limit-error
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages?limit=1000"
 ```
 
@@ -91,7 +91,7 @@ Setting both `after` and `before` on one request is also `invalid_params` (422);
 or truncated cursor is `invalid_cursor` (400):
 
 ```sh check=cursor-error
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages?after=not-a-cursor"
 ```
 
@@ -107,9 +107,9 @@ cursor embeds a hash of the normalized query to enforce that. Take a cursor from
 and replay it against another:
 
 ```sh check=cursor-rebind
-cursor=$(curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+cursor=$(curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/search?q=vacuum&limit=2" | jq -r '.next_cursor')
-curl -s -H "Authorization: Bearer $HORTON_API_KEY" \
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/search?q=index&limit=2&after=$cursor"
 ```
 

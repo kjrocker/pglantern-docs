@@ -72,18 +72,27 @@ MDX with `unified` + `remark-parse` + `remark-mdx` as devDependencies — fences
   what changed. Diffs then show up in `git diff` for review, which is the human checkpoint:
   an unexpected output change is either a server regression or an intentional API change.
 
-Runner details:
+Runner details (as built):
 
-- Each block runs with a fresh temp `$HOME` (no `~/.config/lantern` leakage), a per-block
-  timeout (30s default), sequentially (deterministic cursor behavior beats speed at this
-  scale).
-- Environment injected: `LANTERN_HOST`, `LANTERN_API_KEY`, `HORTON_API_KEY` (whichever
-  export name the rewritten curl examples settle on), `PATH` prefixed with the built
-  `lantern` binary and pinned `jq`/`curl`.
-- Base-URL indirection: before execution, the literal string `https://app.pglantern.com` is
-  replaced with `$DOCS_API_BASE` (the local server, e.g. `http://localhost:4002`). This is
-  the only rewriting the runner does, it's exact-string, and it's documented in the script
-  header. Everything else runs verbatim.
+- Each block runs as `bash -euo pipefail -c`, sequentially (deterministic cursor behavior
+  beats speed at this scale), with a fresh temp `$HOME` (no `~/.config/lantern` leakage) and
+  a per-block timeout — 30s, overridable with `timeout=<seconds>` on the fence.
+- The runner itself requires `DOCS_API_BASE` (the local server, e.g. `http://localhost:4002`)
+  and `DOCS_API_KEY` (a valid key on it). pgml-api's `scripts/docs-validate.sh` supplies
+  both: it boots a dev server against `horton_docs`, builds `lantern` and puts it on `PATH`,
+  then runs the npm script. Both modes take optional file arguments to iterate on one page,
+  and `--strict` promotes lint problems (unannotated `curl`/`lantern` blocks) to failures —
+  that's the form `prebuild` runs, so a broken or unannotated example blocks the build.
+- Environment injected into each block: `LANTERN_HOST`, `LANTERN_API_KEY`, `PGLANTERN_KEY`
+  (the export name the curl examples settled on), `DOCS_API_BASE`, `HOME`, `LANG=C.UTF-8`,
+  and the inherited `PATH`. Nothing else — `jq`/`curl` are whatever the invoking shell has,
+  not pinned.
+- Base-URL indirection: the literal production base `https://pglantern.com` is replaced with
+  `$DOCS_API_BASE` before execution, and mapped back in captured output (the server stamps
+  its own base into `html_url`). That symmetric swap is the only rewriting the runner does;
+  it's exact-string, documented in the script header, and everything else runs and records
+  verbatim.
+- Comparison is byte-exact, except for the single trailing newline a fence cannot represent.
 
 ### 3. A time-locked corpus: "Postgres as of January 1st, 2026"
 
@@ -133,7 +142,7 @@ here with `DOCS_API_BASE` and the key exported.
   `examples:check` into this repo's `prebuild` so a broken example blocks `npm run build`.
 - The check needs a live server, so it cannot run inside a plain static-site CI job. The
   guarantee is enforced at deploy time by the wrapper. (Optional later: a scheduled
-  run-only smoke against production — `--base https://app.pglantern.com --exit-only`, no
+  run-only smoke against production — `--base https://pglantern.com --exit-only`, no
   output diffs since prod data moves past the cutoff.)
 
 ## Phases

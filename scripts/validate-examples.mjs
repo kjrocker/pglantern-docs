@@ -29,7 +29,7 @@
 //                  html_url). That symmetric swap is the only rewriting the
 //                  runner does; everything else runs and records verbatim.
 //   DOCS_API_KEY   required — a valid API key on the server; exported to the
-//                  blocks as both $HORTON_API_KEY and $LANTERN_API_KEY.
+//                  blocks as both $PGLANTERN_KEY and $LANTERN_API_KEY.
 //
 // Each block runs sequentially (deterministic cursor behavior) with a fresh
 // temp $HOME so no ~/.config/lantern leaks in. Comparison is exact except for
@@ -156,7 +156,7 @@ function runBlock(code, timeoutS) {
         LANG: 'C.UTF-8',
         LANTERN_HOST: apiBase,
         LANTERN_API_KEY: apiKey,
-        HORTON_API_KEY: apiKey,
+        PGLANTERN_KEY: apiKey,
         DOCS_API_BASE: apiBase,
       },
     });
