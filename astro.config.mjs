@@ -37,6 +37,7 @@ export default defineConfig({
 					label: 'Learn',
 					items: [
 						{ label: 'Getting started', slug: 'getting-started' },
+						{ label: 'Connect via MCP', slug: 'guides/mcp' },
 						{
 							label: 'Examples',
 							items: [

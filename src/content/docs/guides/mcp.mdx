@@ -1,0 +1,126 @@
+---
+title: Connect via MCP
+description: Point any MCP-capable agent at https://pglantern.com/mcp — search, threads, commits, and GUCs as tools, key optional.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+pgLantern hosts an MCP server at `https://pglantern.com/mcp` (Streamable HTTP). It exposes
+the archive's search, thread, commit, and GUC endpoints as tools, so an agent can answer
+"why was this changed?" questions against the mailing lists directly. Every tool call is a
+real `/api/v1` request under the hood — same parameters, same limits, same quota.
+
+No key is required: keyless calls run on the anonymous per-IP tier (1,000 requests/day,
+24/minute). A [pgLantern API key](/getting-started/#mint-a-key) sent as a bearer token
+raises that to your key's limits; tool calls and direct API requests draw from the same
+daily quota.
+
+The server is live — this is the raw protocol handshake your MCP client performs for you:
+
+```sh check=mcp-tools-list
+session=$(curl -si https://pglantern.com/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' \
+  | tr -d '\r' | awk 'tolower($1)=="mcp-session-id:"{print $2}')
+curl -s -o /dev/null https://pglantern.com/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "mcp-session-id: $session" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+curl -s https://pglantern.com/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "mcp-session-id: $session" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+  | jq -r '.result.tools[].name' | sort
+```
+
+```txt output=mcp-tools-list
+get_commit
+get_commit_thread
+get_message
+get_thread
+get_thread_commits
+list_gucs
+list_mailing_lists
+search_messages
+```
+
+## Claude Code
+
+```sh
+claude mcp add --transport http pglantern https://pglantern.com/mcp
+```
+
+To attach your key, add a header:
+
+```sh
+claude mcp add --transport http pglantern https://pglantern.com/mcp \
+  --header "Authorization: Bearer $PGLANTERN_KEY"
+```
+
+## claude.ai
+
+**Settings → Connectors → Add custom connector**, URL `https://pglantern.com/mcp`. Leave
+the auth fields empty — the connector runs on the anonymous tier.
+
+## Messages API
+
+The MCP connector needs both halves: the server entry in `mcp_servers` and an
+`mcp_toolset` in `tools` referencing it by name, plus the beta header.
+
+```sh skip=needs-an-anthropic-api-key
+curl -s https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-beta: mcp-client-2025-11-20" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-opus-5",
+    "max_tokens": 2048,
+    "mcp_servers": [{"type": "url", "url": "https://pglantern.com/mcp", "name": "pglantern"}],
+    "tools": [{"type": "mcp_toolset", "mcp_server_name": "pglantern"}],
+    "messages": [{"role": "user", "content": "Was anything decided on pgsql-hackers about making vacuum ring buffers configurable, and did it land?"}]
+  }'
+```
+
+To use your pgLantern key here, add `"authorization_token": "hml_…"` to the
+`mcp_servers` entry.
+
+## The tools
+
+| Tool | What it returns |
+|---|---|
+| `search_messages` | Full-text search over the archives; message summaries, `limit` ≤ 50 |
+| `get_message` | One message in full: body text, sender, lists, attachment metadata |
+| `get_thread` | The whole thread containing a message, flat, oldest first |
+| `get_thread_commits` | Commits that landed from a thread (via `Discussion:` trailers) |
+| `get_commit` | One postgres.git commit by SHA: message, files, first-shipped releases |
+| `get_commit_thread` | The discussion a commit's `Discussion:` trailer points at |
+| `list_mailing_lists` | The lists in the archive — fills `search_messages`' `list` parameter |
+| `list_gucs` | A major version's GUC catalog; `changed_since` diffs it against an older major |
+
+Parameters mirror the [REST API](/reference/api/) exactly — the tool schemas are derived
+from the same OpenAPI spec.
+
+## Limits and errors
+
+- API errors come back as MCP tool errors, text-first: a rate-limited call reads
+  `rate_limited (HTTP 429): burst rate limit exceeded; retry after 37s`. Agents recover
+  from these on their own.
+- Message and commit bodies over 64KB are truncated in tool results, marked with
+  `body_text_truncated: true` and a hint. The [REST API](/reference/api/) serves
+  untruncated bodies.
+- An agent hammering search can burn the anonymous 24/minute burst quickly; a
+  [free key](/getting-started/#mint-a-key) raises the limits and moves usage off your IP.
+
+<Aside>
+The server is stateless and tools-only — no resources, no prompts, no OAuth. If your
+client asks about authentication, the answer is "none, or a bearer key".
+</Aside>
+
+## Next
+
+- [Getting started](/getting-started/) to mint a key and raise the limits.
+- [Full-text search](/examples/search/) for what `search_messages`' filters can do.
+- [Commits and discussions](/examples/correlation/) for the mail ↔ commit ↔ GUC graph the
+  thread/commit tools walk.
+- [API reference](/reference/api/) for every parameter and response shape.
