@@ -71,67 +71,34 @@ export PGLANTERN_KEY=hml_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ```sh check=search-slots
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
-  "https://pglantern.com/api/v1/search?q=logical+replication+slot&list=pgsql-hackers&limit=2" | jq
+  "https://pglantern.com/api/v1/search?q=logical+replication+slot&list=pgsql-hackers&limit=2" \
+  | jq '{total, next_cursor, data: [.data[] | {message_id, subject, sent_at, sender: .sender.display_name}]}'
 ```
 
 ```json output=search-slots
 {
+  "total": 6634,
+  "next_cursor": "g3QAAAADdwF2bAAAAANGQA0dgMAAAABuBwDA-kVKdzcGYgARJ-RqdwFxbQAAAAidJw2cdpOFcHcBbmEC",
   "data": [
     {
-      "lists": [
-        {
-          "active": true,
-          "name": "pgsql-hackers",
-          "short_desc": "PostgreSQL developer discussion"
-        }
-      ],
-      "html_url": "https://pglantern.com/messages/CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-%2BBBLcw%40mail.gmail.com",
-      "subject": "Re: Issue with logical replication slot during switchover",
       "message_id": "CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-+BBLcw@mail.gmail.com",
+      "subject": "Re: Issue with logical replication slot during switchover",
       "sent_at": "2025-08-27T14:24:53Z",
-      "archive_url": "https://postgr.es/m/CAA5-nLAvyZiAZt65qB-Vr3tuC-syo6VaHMbRYmoiX49-%2BBBLcw%40mail.gmail.com",
-      "sender": {
-        "email": "fabrice636861@gmail.com",
-        "display_name": "Fabrice Chapuis"
-      },
-      "from_raw": "Fabrice Chapuis <fabrice636861@gmail.com>",
-      "to_raw": "shveta malik <shveta.malik@gmail.com>",
-      "cc_raw": "PostgreSQL Hackers <pgsql-hackers@lists.postgresql.org>",
-      "has_attachment": false,
-      "date_estimated": false,
-      "thread_id": "1f930ea6-fee4-5ccc-89e5-98ae42956266"
+      "sender": "Fabrice Chapuis"
     },
     {
-      "lists": [
-        {
-          "active": true,
-          "name": "pgsql-hackers",
-          "short_desc": "PostgreSQL developer discussion"
-        }
-      ],
-      "html_url": "https://pglantern.com/messages/CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO%3D5JP0zhya6RmQ%40mail.gmail.com",
-      "subject": "Re: Logical Replication slot disappeared after promote Standby",
       "message_id": "CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO=5JP0zhya6RmQ@mail.gmail.com",
+      "subject": "Re: Logical Replication slot disappeared after promote Standby",
       "sent_at": "2025-06-13T17:22:27Z",
-      "archive_url": "https://postgr.es/m/CALvqh4pcn3bF2AbjiBKbWrTSXSz_2FMe9cRzO%3D5JP0zhya6RmQ%40mail.gmail.com",
-      "sender": {
-        "email": "perucinci@gmail.com",
-        "display_name": "Perumal Raj"
-      },
-      "from_raw": "Perumal Raj <perucinci@gmail.com>",
-      "to_raw": "shveta malik <shveta.malik@gmail.com>",
-      "cc_raw": "\"Zhijie Hou (Fujitsu)\" <houzj.fnst@fujitsu.com>,\n pgsql-hackers@lists.postgresql.org",
-      "has_attachment": false,
-      "date_estimated": false,
-      "thread_id": "6002eda9-2b2f-5efd-b95f-516fa90473fe"
+      "sender": "Perumal Raj"
     }
-  ],
-  "total": 6634,
-  "prev_cursor": null,
-  "next_cursor": "g3QAAAADdwF2bAAAAANGQA0dgMAAAABuBwDA-kVKdzcGYgARJ-RqdwFxbQAAAAidJw2cdpOFcHcBbmEC",
-  "total_exact": true
+  ]
 }
 ```
+
+The full envelope carries more per message — `from_raw`, `to_raw`, `cc_raw`, `sender.email`, the
+list memberships, the archive URLs — projected out here; the [API reference](/reference/api/) has
+the exhaustive shape.
 
 Default order is relevance (capped at 200 results); `sort=sent_at` switches to the uncapped,
 index-backed recency ordering. See the [search examples](/examples/search/) for the full filter
@@ -141,14 +108,13 @@ set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
 
 ```sh check=sender-get
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
-  https://pglantern.com/api/v1/senders/48 | jq '.data | {id, display_name, email, stats}'
+  https://pglantern.com/api/v1/senders/48 | jq '.data | {id, display_name, stats}'
 ```
 
 ```json output=sender-get
 {
   "id": 48,
   "display_name": "Tom Lane",
-  "email": "tgl@sss.pgh.pa.us",
   "stats": {
     "first_message_at": "1998-04-15T20:25:36Z",
     "last_message_at": "2025-12-31T23:37:36Z",

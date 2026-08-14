@@ -33,10 +33,10 @@ lantern search incremental backup --list pgsql-hackers --limit 3
 ```
 
 ```txt output=first-cli
-SENT AT               FROM                                          SUBJECT                             MESSAGE-ID
-2019-04-10T15:31:53Z  Robert Haas <robertmhaas@gmail.com>           Re: block-level incremental backup  CA+TgmoZrqdV-tB8nY9P+1pQLqKXp5f1afghuoHh5QT6ewdkJ6g@mail.gmail.com
-2019-08-30T13:21:50Z  Jeevan Ladhe <jeevan.ladhe@enterprisedb.com>  Re: block-level incremental backup  CAOgcT0MF5RpWcTHrepYx84PQfHHsjzVSD-ZsJNahTNenekD3zw@mail.gmail.com
-2019-04-17T22:43:10Z  Stephen Frost <sfrost@snowman.net>            Re: block-level incremental backup  20190417224309.GH6197@tamriel.snowman.net
+SENT AT               FROM           SUBJECT                             MESSAGE-ID
+2019-04-10T15:31:53Z  Robert Haas    Re: block-level incremental backup  CA+TgmoZrqdV-tB8nY9P+1pQLqKXp5f1afghuoHh5QT6ewdkJ6g@mail.gmail.com
+2019-08-30T13:21:50Z  Jeevan Ladhe   Re: block-level incremental backup  CAOgcT0MF5RpWcTHrepYx84PQfHHsjzVSD-ZsJNahTNenekD3zw@mail.gmail.com
+2019-04-17T22:43:10Z  Stephen Frost  Re: block-level incremental backup  20190417224309.GH6197@tamriel.snowman.net
 ```
 
 </TabItem>
@@ -173,13 +173,13 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   --data-urlencode "sort=sent_at" \
   --data-urlencode "limit=3" \
   "https://pglantern.com/api/v1/search" \
-  | jq -r '.data[] | [.sent_at, .sender.email, .subject] | @tsv'
+  | jq -r '.data[] | [.sent_at, .sender.display_name, .subject] | @tsv'
 ```
 
 ```txt output=metadata-filters
-2025-06-27T19:33:30Z	nathan@postgresql.org	[PATCH v6 1/1] Document pg_get_multixact_members().
-2025-06-25T15:21:03Z	nathandbossart@gmail.com	Re: Fixes inconsistent behavior in vacuum when it processes multiple\n relations
-2025-06-24T18:21:56Z	nathandbossart@gmail.com	Re: problems with toast.* reloptions
+2025-06-27T19:33:30Z	Nathan Bossart	[PATCH v6 1/1] Document pg_get_multixact_members().
+2025-06-25T15:21:03Z	Nathan Bossart	Re: Fixes inconsistent behavior in vacuum when it processes multiple\n relations
+2025-06-24T18:21:56Z	Nathan Bossart	Re: problems with toast.* reloptions
 ```
 
 Composing `sender` with `sort=sent_at` is the "one person's history on a topic" recipe —

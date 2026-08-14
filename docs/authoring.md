@@ -137,6 +137,18 @@ envelopes. A docs page is not a schema dump; the OpenAPI reference covers exhaus
 Show error envelopes by running the failing request without `curl -f` (exit stays 0, the
 envelope prints); reserve `exit=1` for CLI commands that exit nonzero.
 
+Same lever, second reason: **no contributor email addresses in captured output.** Project
+`.sender.display_name`, never `.sender.email`, and never surface `from_raw`, `to_raw`, or
+`cc_raw`. The API returns all of them and the OpenAPI reference documents the shape — a
+published page doesn't have to hand a scraper the addresses. Around that rule:
+
+- Message-Ids are identifiers, not mailboxes. They stay verbatim even when they embed a
+  personal domain (`28432.892671936@sss.pgh.pa.us`) — they're the API's lookup key.
+- Public list addresses (`pgsql-hackers@lists.postgresql.org`) and display names (`Tom Lane`)
+  are fine; the names carry the example's meaning.
+- `lantern`'s FROM and STARTER columns show the display name only, so CLI tabs are clean by
+  default. A table that would print an address (`lantern senders get`) is a deliberate call.
+
 Things the frozen corpus makes safe that would otherwise be malpractice:
 
 - Hardcoding a cursor from one output block into the next command (the pagination
@@ -169,6 +181,7 @@ whole suite.
 - [ ] Every command block `check=` or `skip=<reason>`; names unique; base URL is
       `https://pglantern.com`; auth via `$PGLANTERN_KEY`.
 - [ ] Outputs captured by `examples:update`, not typed; `jq`-projected to stay small.
+- [ ] No contributor email addresses in captured output (Message-Ids excepted).
 - [ ] Prose claims match the captured outputs they sit next to.
 - [ ] Every limit, error, and surprise the reader needs is stated; no implementation detail
       that doesn't change what they'd run or expect.
