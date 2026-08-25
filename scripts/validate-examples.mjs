@@ -33,13 +33,16 @@
 //
 // Each block runs sequentially (deterministic cursor behavior) with a fresh
 // temp $HOME so no ~/.config/lantern leaks in. Comparison is exact except for
-// the single trailing newline a fence cannot represent.
+// the single trailing newline a fence cannot represent — and for `json` output
+// blocks, which compare parsed (same keys and values, any key order; see
+// sameOutput).
 
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkMdx from 'remark-mdx';
@@ -165,6 +168,23 @@ function runBlock(code, timeoutS) {
   }
 }
 
+// `json` output blocks compare semantically; everything else byte-for-byte.
+//
+// The server builds responses as Elixir maps, and Erlang leaves map iteration
+// order undefined — so a block that pipes a server object straight through jq
+// (rather than naming its keys) records whatever order that boot happened to
+// produce, and fails at random against the next one. Values still have to match
+// exactly, key for key; only their order is forgiven.
+function sameOutput(documented, captured, lang) {
+  if (documented === captured) return true;
+  if (lang !== 'json') return false;
+  try {
+    return isDeepStrictEqual(JSON.parse(documented), JSON.parse(captured));
+  } catch {
+    return false; // not parseable as a whole (jq -c streams, etc.) — byte compare stands
+  }
+}
+
 function unifiedDiff(expected, actual, label) {
   const dir = mkdtempSync(join(tmpdir(), 'docs-diff-'));
   try {
@@ -217,7 +237,7 @@ for (const { file, rel, checks } of work) {
       .replaceAll(apiBase, PROD_BASE);
     const documented = outputNode.value;
 
-    if (captured === documented) {
+    if (sameOutput(documented, captured, outputNode.lang)) {
       console.log(`ok   ${where}`);
     } else if (update) {
       if (!rewrites.has(file)) rewrites.set(file, []);
