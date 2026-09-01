@@ -6,6 +6,16 @@ dist/
 # dependencies
 node_modules/
 
+# wrangler's cache/state. The deploy passes HOME + WRANGLER_CACHE_DIR into the
+# container so this never appears, but if that plumbing regresses an untracked
+# .wrangler/ here fails the parent repo's deploy preflight, which requires this
+# submodule to be clean.
+.wrangler/
+
+# agent tooling, same reason — untracked files here block a deploy
+.claude/
+.mcp.json
+
 # logs
 npm-debug.log*
 yarn-debug.log*

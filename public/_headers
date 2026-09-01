@@ -1,0 +1,26 @@
+# Cloudflare Pages header rules — the (hardening) snippet from the app repo's
+# ansible/templates/caddy.j2, reproduced for the Pages edge now that Caddy no
+# longer serves this host. Astro copies public/ verbatim into dist/, which is
+# what Pages parses; this file is never served as an asset.
+#
+# Deliberately NOT reproduced from (hardening):
+#   -Server            Cloudflare always sends `Server: cloudflare`. Nothing
+#                      leaks — it names the CDN, not our software.
+#   encode gzip zstd   Cloudflare negotiates gzip/brotli on its own.
+#   log -> fail2ban    there is no origin left to jail.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+# The pages.dev alias stays reachable — it is what docs.pglantern.com CNAMEs to
+# and the rollback target if the custom domain misbehaves — but it must never
+# compete with the real host in search results. astro.config.mjs' `site:`
+# already emits canonical links; this is the belt-and-braces. _headers matches
+# absolute URLs, so this rule is scoped to the alias alone.
+https://horton-docs.pages.dev/*
+  X-Robots-Tag: noindex
