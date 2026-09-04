@@ -18,9 +18,9 @@ export default defineConfig({
 			customCss: ['./src/styles/custom.css'],
 			social: [
 				{
-					icon: 'codeberg',
-					label: 'Codeberg',
-					href: 'https://codeberg.org/kehvyn/horton-cli',
+					icon: 'github',
+					label: 'GitHub',
+					href: 'https://github.com/kjrocker/pglantern-cli',
 				},
 			],
 			plugins: [

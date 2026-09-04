@@ -133,12 +133,10 @@ shape.
 `lantern` is a `gh`-style CLI over this same API:
 
 ```sh skip=installs-from-the-network
-curl -fsSL https://codeberg.org/kehvyn/pglantern-cli/raw/branch/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kjrocker/pglantern-cli/main/install.sh | bash
 ```
 
-The installer downloads the release binary to `~/.local/bin` (override with `--bin-dir`). If
-you already have Go 1.24+ configured, `go install codeberg.org/kehvyn/pglantern-cli@latest`
-works too.
+The installer downloads the release binary to `~/.local/bin` (override with `--bin-dir`).
 
 Like the API, the CLI needs no key to work — keyless commands run on the same anonymous
 per-IP tier:
