@@ -41,12 +41,17 @@ pgsql-www
 
 ## Mint a key
 
-A key raises the limits (free tier: 4,000 cost units/day — 4,000 lookups, or 800 searches — at
-60 requests/minute) and ties usage to your account instead of your IP.
+A key raises the limits (free tier: 10,000 cost units a **year** — 10,000 lookups, or 2,000
+searches — at 60 requests/minute) and ties usage to your account instead of your IP. Keyless
+requests keep a smaller daily per-IP allowance.
 
 The budget belongs to the **account**, not the key: mint one key per machine, VM, or CI job —
-there is no cap on how many — and they all spend from the same daily pool. `/users/api-keys`
-shows the pool and which key is spending it.
+there is no cap on how many — and they all spend from the same annual pool. `/users/api-keys`
+shows the pool, which key is spending it, and when it refills.
+
+The year runs from your own anniversary — the day you signed up, or your subscription's start
+date once you have one — not the calendar. `x-ratelimit-reset` on every response carries the
+exact instant.
 
 <Steps>
 
