@@ -12,7 +12,8 @@ job would use.
 ## Your first call — no key needed
 
 Every `/api/v1` endpoint works without a key on the anonymous per-IP tier
-(1,000 requests/day, 24/minute per IP). Base URL: `https://pglantern.com/api/v1`.
+(80 cost units/day, 10 requests/minute per IP — 80 lookups, or 16 searches).
+Base URL: `https://pglantern.com/api/v1`.
 
 ```sh check=lists-anon
 curl -s https://pglantern.com/api/v1/lists | jq -r '.data[].name'
@@ -40,8 +41,12 @@ pgsql-www
 
 ## Mint a key
 
-A key raises the limits (free tier: 2,000 requests/day) and ties usage to your account instead
-of your IP.
+A key raises the limits (free tier: 4,000 cost units/day — 4,000 lookups, or 800 searches — at
+60 requests/minute) and ties usage to your account instead of your IP.
+
+The budget belongs to the **account**, not the key: mint one key per machine, VM, or CI job —
+there is no cap on how many — and they all spend from the same daily pool. `/users/api-keys`
+shows the pool and which key is spending it.
 
 <Steps>
 

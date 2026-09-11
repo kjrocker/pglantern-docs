@@ -12,8 +12,12 @@ real `/api/v1` request under the hood — same parameters, same limits, same quo
 
 An [API key](/getting-started/#mint-a-key) is required — send it as
 `Authorization: Bearer hml_…` on the MCP connection; keyless requests get a `401`. Keys
-are free, and tool calls draw from the same daily quota as direct API requests, one
-request per call.
+are free, and tool calls draw from the same daily quota as direct API requests, charged
+the cost of the route behind each call.
+
+That quota is your **account's**, shared with every other key you hold: an agent firing
+tool calls in parallel draws down the same daily pool — and the same burst window — as
+your scripts.
 
 The server is live — this is the raw protocol handshake your MCP client performs for you:
 
