@@ -49,6 +49,7 @@ get_thread
 get_thread_commits
 list_gucs
 list_mailing_lists
+list_threads
 search_messages
 ```
 
@@ -94,10 +95,11 @@ curl -s https://api.anthropic.com/v1/messages \
 | `search_messages` | Full-text search over the archives; message summaries, `limit` ≤ 50 |
 | `get_message` | One message in full: body text, sender, lists, attachment metadata |
 | `get_thread` | The whole thread containing a message, flat, oldest first |
+| `list_threads` | Rank threads by last activity, start, or message count — optionally on one list |
 | `get_thread_commits` | Commits that landed from a thread (via `Discussion:` trailers) |
 | `get_commit` | One postgres.git commit by SHA: message, files, first-shipped releases |
 | `get_commit_thread` | The discussion a commit's `Discussion:` trailer points at |
-| `list_mailing_lists` | The lists in the archive — fills `search_messages`' `list` parameter |
+| `list_mailing_lists` | The lists in the archive — fills the `list` parameter on `search_messages` and `list_threads` |
 | `list_gucs` | A major version's GUC catalog; `changed_since` diffs it against an older major |
 
 Parameters mirror the [REST API](/reference/api/) exactly — the tool schemas are derived
