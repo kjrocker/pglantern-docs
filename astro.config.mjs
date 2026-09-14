@@ -37,6 +37,9 @@ export default defineConfig({
 					label: 'Learn',
 					items: [
 						{ label: 'Getting started', slug: 'getting-started' },
+						{ label: 'Authentication', slug: 'guides/authentication' },
+						{ label: 'Install the CLI', slug: 'guides/cli' },
+						{ label: 'What you can ask', slug: 'capabilities' },
 						{ label: 'Connect via MCP', slug: 'guides/mcp' },
 						{
 							label: 'Examples',
@@ -46,6 +49,7 @@ export default defineConfig({
 								{ label: 'Pagination', slug: 'examples/pagination' },
 							],
 						},
+						{ label: 'Roadmap', slug: 'roadmap' },
 					],
 				},
 				{

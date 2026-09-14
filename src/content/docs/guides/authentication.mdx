@@ -1,0 +1,28 @@
+---
+title: Authentication
+description: API keys — where to mint them, how to send them, and what the anonymous tier gets without one.
+---
+
+{/* Scaffold — not yet written. Becomes the canonical home for key material now in getting-started#mint-a-key. */}
+
+## Without a key
+
+{/* Anonymous per-IP tier: daily allowance, burst window. Present-but-invalid key is a 401, not a fallback. */}
+
+## Mint a key
+
+{/* Sign up, /users/api-keys, raw key shown once. One key per machine/CI job, no cap. */}
+
+## Send the key
+
+{/* Authorization: Bearer vs X-API-Key (Authorization checked first). lantern login / LANTERN_API_KEY. MCP requires a key. */}
+
+## Quota and limits
+
+{/* Budget is per account, shared across keys. Yearly window from your anniversary. Cost units per route, x-request-cost, x-ratelimit-* headers, 429. */}
+
+## Revoking a key
+
+{/* Where, and what happens to in-flight clients. */}
+
+## Next
