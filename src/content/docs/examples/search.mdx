@@ -90,12 +90,12 @@ autovacuum  26867
 
 ## Relevance vs `sort=sent_at`
 
-Default order is relevance (`ts_rank_cd`), with any ties broken by `sent_at`. Relevance search is **capped at 200 results**. `sort=sent_at` switches to the ordering by date.
+Default order is relevance (`ts_rank_cd`), with any ties broken by `sent_at`. Relevance search is **capped at 200 results**, and when more than 2,000 messages match, only the **2,000 most recent** are ranked — the response's `rank_window` is `2000` then, `null` when every match was ranked. `sort=sent_at` switches to the ordering by date.
 
 ```sh check=relevance-vs-recency
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/search?q=vacuum+truncate&limit=1" \
-  | jq '{order: "relevance", total, top: .data[0].subject}'
+  | jq '{order: "relevance", total, rank_window, top: .data[0].subject}'
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/search?q=vacuum+truncate&sort=sent_at&limit=1" \
   | jq '{order: "sent_at", total, newest: .data[0].subject}'
@@ -105,6 +105,7 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 {
   "order": "relevance",
   "total": 5262,
+  "rank_window": 2000,
   "top": "[PATCH v5 1/1] Add vacuum_truncate configuration parameter."
 }
 {
@@ -115,8 +116,9 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 ```
 
 Use relevance for "the best few matches"; use `sort=sent_at` for an exhaustive pull — a
-backfill, or any query broad enough that 200 ranked hits aren't enough. The two
-orders also paginate differently: see [pagination](/examples/pagination/) for the query-hash
+backfill, or any query broad enough that 200 ranked hits aren't enough. A windowed match set
+ranks recent traffic only: to rank older threads, add `from`/`to` until `total` drops under
+2,000 and `rank_window` comes back `null`. The two orders also paginate differently: see [pagination](/examples/pagination/) for the query-hash
 binding on relevance cursors.
 
 ## Linkage filters: `committed`, `path`, `major`
