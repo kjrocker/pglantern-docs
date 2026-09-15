@@ -67,21 +67,27 @@ a subset of English irregular plurals, along with filtering of emails and other 
 - **Noise stays out of the index** — email addresses, URLs, and bare numbers don't contribute
   to matches or rank.
 
-The synonym map is observable from the search totals:
+The synonym map is observable from the search totals. Totals above 10,000 are planner estimates
+(`total_exact: false`), so compare synonyms on narrower queries where the count is exact:
 
 ```sh check=synonyms
-for q in indices index autovac autovacuum; do
+for q in matrices matrix; do
   printf '%-12s' "$q"
   curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
-    "https://pglantern.com/api/v1/search?q=$q&limit=1" | jq .total
+    "https://pglantern.com/api/v1/search?q=$q&limit=1" | jq -r '"\(.total) \(.total_exact)"'
+done
+for q in autovac autovacuum; do
+  printf '%-12s' "$q"
+  curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+    "https://pglantern.com/api/v1/search?q=$q&from=2025-01-01&limit=1" | jq -r '"\(.total) \(.total_exact)"'
 done
 ```
 
 ```txt output=synonyms
-indices     169832
-index       169832
-autovac     26867
-autovacuum  26867
+matrices    1343 true
+matrix      1343 true
+autovac     1218 true
+autovacuum  1218 true
 ```
 
 <Aside type="tip">
