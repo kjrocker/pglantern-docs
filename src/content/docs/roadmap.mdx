@@ -1,18 +1,35 @@
 ---
 title: Roadmap
-description: What pgLantern is building next — self-hosting, semantic search, and commitfest integration.
+description: What pgLantern is building next — commitfest integration, pipeline optimization, semantic search.
 ---
 
-{/* Scaffold — not yet written. Keep it short: what's planned, not dates we can't hold. */}
+Right now I'm focused on building out the core API, and optimizing what I have to run
+smoothly on limited hardware with more frequent updates.
 
-## Self-hosting
+## Dedicated Postgres Box
 
-{/* Goal: run the pipeline + API against your own Postgres. What exists today vs. what's missing. */}
-
-## Semantic search
-
-{/* How it complements full-text search (/examples/search/); what stays the same in the API. */}
+Right now everything is on a single Hetzner CX23 VM. These boxes aren't available right now,
+but I have a spare on my account. Next step in optimization, and getting some breathing room
+on performance, is to move Postgres to that spare box.
 
 ## Commitfest integration
 
-{/* Patch entries ↔ threads ↔ commits; how it extends the existing mail ↔ commit graph. */}
+The next big push. I want to fully integrate the CommitFest data as a third data source
+alongside the commits and the messages. I'm setting groundwork for this right now by
+upstreaming some endpoints to the CommitFest application itself.
+
+## Semantic search
+
+Enable semantic search for paid users. This will require an embedding pipeline, pg_vector,
+etc.
+
+The exact search semantics are TBD, but I would make it explicit via either the endpoint or
+the params which mode you're in.
+
+## Self-hosting
+
+This is still in the ideation phase, but it's a good way to let very heavy commercial users
+run the API on their own hardware.
+
+It requires me shipping the pipeline results as database deltas, and figuring out a build of
+the API that only serves the actual Postgres portions with no Users, Teams, Stripe, etc.

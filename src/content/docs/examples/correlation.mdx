@@ -5,15 +5,15 @@ description: Walk the graph linking mail, commits, patches, and GUCs — commit 
 
 import { Aside } from '@astrojs/starlight/components';
 
-The archive isn't just messages — it's a graph. A thread argues a change, a patch attachment
+The archive is essentially a giant graph. A thread argues a change, a patch attachment
 carries the diff, a commit lands citing the thread in its `Discussion:` trailer, and the GUC
-catalog remembers which major shipped it. Every edge below is a join the pipeline computed at
-ingest, so you don't grep commit logs against mbox files by hand.
+catalog remembers which major shipped it. Every edge below is a join we've correlated for
+you.
 
 This page follows one real change end to end: `vacuum_truncate`, the Postgres 18 GUC. In
-December 2024, Will Storey asked on pgsql-general about disabling autovacuum's
-end-of-table truncation after it caused an outage on a hot standby. Three months and 34
-messages later, Nathan Bossart committed the parameter. Every step of that arc is queryable.
+December 2024, Will Storey asked on pgsql-general about disabling autovacuum's end-of-table
+truncation after it caused an outage on a hot standby. Three months and 34 messages later,
+Nathan Bossart committed the parameter.
 
 All examples assume a key in `$PGLANTERN_KEY`; outputs were captured against the archive as
 of 2026-01-01.
@@ -21,8 +21,8 @@ of 2026-01-01.
 ## Start from the version diff
 
 `GET /versions/:major/gucs?changed_since=<major>` diffs two GUC catalogs into four buckets —
-`added`, `removed`, `default_changed`, `context_changed` — and decorates each row,
-best-effort, with the commit that changed it and the thread that argued the commit:
+`added`, `removed`, `default_changed`, `context_changed` — and decorates each row, when
+possible, with the commit that changed it and the relevant thread:
 
 ```sh check=guc-diff
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -50,12 +50,12 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 }
 ```
 
-That one response hands you the two ids the rest of this page pulls on: the commit sha and
-the thread's `message_id`. (`commit` and `thread` are nullable — not every catalog change
-traces back to an archived discussion. A diff between majors where either side has no
-committed catalog is `422`; an unknown major is `404`.)
+That response hands you the two ids: the commit sha and the thread's `message_id`. (`commit`
+and `thread` are nullable — not every catalog change traces back to an archived discussion.
+A diff between majors where either side has no committed catalog is `422`; an unknown major
+is `404`.)
 
-The buckets themselves answer the flagship DBA question — "what changed between 17 and 18":
+The buckets themselves answer the critical question — "what changed between 17 and 18":
 
 ```sh check=guc-diff-summary
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -100,7 +100,7 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 ```
 
 `effective_io_concurrency` jumping from `1` to `16` is exactly the kind of change you want
-the argument for — and its row carries the commit and thread to go read it.
+to catch, and the row carries the everything you need to go read it.
 
 ## Commit → discussion
 
@@ -154,7 +154,7 @@ resolve to an ingested message — a phantom link is surfaced as data, not hidde
 
 The reverse edge: given any message in a thread, what landed. The id in the URL is the raw
 `Message-Id`, percent-encoded (the CLI encodes for you: `lantern messages commits '<id>'`).
-The walk covers the *whole thread*, so the first message of the conversation finds commits
+The walk covers the _whole thread_, so the first message of the conversation finds commits
 cited by the last:
 
 ```sh check=message-commits
@@ -191,9 +191,9 @@ An empty `data` array means the thread never landed anything.
 
 ## Message → refs
 
-`GET /messages/:id/refs` is the raw material one level down — the code-shaped tokens pulled
-out of a message body before they're resolved into commits. A commit-announcement mail makes
-a compact example:
+`GET /messages/:id/refs` is the low-level references embedded in a message — the tokens
+pulled out of a message body before they're resolved into commits. A commit-announcement
+mail makes a compact example:
 
 ```sh check=message-refs
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
