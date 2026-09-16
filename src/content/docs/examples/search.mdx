@@ -5,7 +5,8 @@ description: Query semantics of GET /search — the pg text search config, relev
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-`GET /search` runs full-text search over message subjects and bodies. Other filters are applied on top of the search query to narrow results.
+`GET /search` runs full-text search over message subjects and bodies. Other filters are
+applied on top of the search query to narrow results.
 
 All examples assume a key in `$PGLANTERN_KEY` (see [getting started](/getting-started/));
 every output block was captured against the archive as of 2026-01-01.
@@ -55,20 +56,21 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 
 ## The `pg` text search config
 
-pgLantern uses a modifed text search configuration that includes domain specific language and
-a subset of English irregular plurals, along with filtering of emails and other noise:
+pgLantern uses a modifed text search configuration that includes domain specific language
+and a subset of English irregular plurals, along with filtering of emails and other noise:
 
 - **Product-name spellings collapse to one token** — `postgres`, `postgresql`, and `pgsql`
   normalize to the same lexeme.
 - **pgsql-hackers shorthand expands to the full term** — `autovac` → `autovacuum`, `xact` →
   `transaction`, `idx` → `index`.
-- **Chosen irregular plurals are handled** — `indices` matches `index`, `matrices`
-  matches `matrix`.
-- **Noise stays out of the index** — email addresses, URLs, and bare numbers don't contribute
-  to matches or rank.
+- **Chosen irregular plurals are handled** — `indices` matches `index`, `matrices` matches
+  `matrix`.
+- **Noise stays out of the index** — email addresses, URLs, and bare numbers don't
+  contribute to matches or rank.
 
-The synonym map is observable from the search totals. Totals above 10,000 are planner estimates
-(`total_exact: false`), so compare synonyms on narrower queries where the count is exact:
+The synonym map is observable from the search totals. Totals above 10,000 are planner
+estimates (`total_exact: false`), so compare synonyms on narrower queries where the count is
+exact:
 
 ```sh check=synonyms
 for q in matrices matrix; do
@@ -96,7 +98,10 @@ autovacuum  1218 true
 
 ## Relevance vs `sort=sent_at`
 
-Default order is relevance (`ts_rank_cd`), with any ties broken by `sent_at`. Relevance search is **capped at 200 results**, and when more than 2,000 messages match, only the **2,000 most recent** are ranked — the response's `rank_window` is `2000` then, `null` when every match was ranked. `sort=sent_at` switches to the ordering by date.
+Default order is relevance (`ts_rank_cd`), with any ties broken by `sent_at`. Relevance
+search is **capped at 200 results**, and when more than 2,000 messages match, only the
+**2,000 most recent** are ranked — the response's `rank_window` is `2000` then, `null` when
+every match was ranked. `sort=sent_at` switches to the ordering by date.
 
 ```sh check=relevance-vs-recency
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -124,12 +129,12 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 Use relevance for "the best few matches"; use `sort=sent_at` for an exhaustive pull — a
 backfill, or any query broad enough that 200 ranked hits aren't enough. A windowed match set
 ranks recent traffic only: to rank older threads, add `from`/`to` until `total` drops under
-2,000 and `rank_window` comes back `null`. The two orders also paginate differently: see [pagination](/examples/pagination/) for the query-hash
-binding on relevance cursors.
+2,000 and `rank_window` comes back `null`. The two orders also paginate differently: see
+[pagination](/examples/pagination/) for the query-hash binding on relevance cursors.
 
 ## Linkage filters: `committed`, `path`, `major`
 
-These filter on outcomes recorded against the message's *thread* via `Discussion:`
+These filter on outcomes recorded against the message's _thread_ via `Discussion:`
 commit-trailer links — whether it landed a commit, what that commit touched, where it first
 shipped:
 
@@ -169,8 +174,8 @@ with the offending field named in `details.param`.
 
 ## Metadata filters: `sender`, `from`/`to`, `list`
 
-`sender` searches over the sender's email or display name; `from`/`to`
-are ISO-8601 bounds on `sent_at`; `list` restricts to one mailing list:
+`sender` searches over the sender's email or display name; `from`/`to` are ISO-8601 bounds
+on `sent_at`; `list` restricts to one mailing list:
 
 ```sh check=metadata-filters
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \

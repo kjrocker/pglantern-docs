@@ -1,0 +1,12 @@
+# embeddedLanguageFormatting is "off" in .prettierrc for a reason: the ```json
+# blocks in src/content/docs/ are captured API output, byte-compared by
+# scripts/validate-examples.mjs. Letting prettier re-indent them would break
+# the build (prebuild runs examples:check).
+
+dist/
+.astro/
+.wrangler/
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+public/

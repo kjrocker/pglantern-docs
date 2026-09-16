@@ -77,12 +77,13 @@ Runner details (as built):
 - Each block runs as `bash -euo pipefail -c`, sequentially (deterministic cursor behavior
   beats speed at this scale), with a fresh temp `$HOME` (no `~/.config/lantern` leakage) and
   a per-block timeout — 30s, overridable with `timeout=<seconds>` on the fence.
-- The runner itself requires `DOCS_API_BASE` (the local server, e.g. `http://localhost:4002`)
-  and `DOCS_API_KEY` (a valid key on it). pgml-api's `scripts/docs-validate.sh` supplies
-  both: it boots a dev server against `horton_docs`, builds `lantern` and puts it on `PATH`,
-  then runs the npm script. Both modes take optional file arguments to iterate on one page,
-  and `--strict` promotes lint problems (unannotated `curl`/`lantern` blocks) to failures —
-  that's the form `prebuild` runs, so a broken or unannotated example blocks the build.
+- The runner itself requires `DOCS_API_BASE` (the local server, e.g.
+  `http://localhost:4002`) and `DOCS_API_KEY` (a valid key on it). pgml-api's
+  `scripts/docs-validate.sh` supplies both: it boots a dev server against `horton_docs`,
+  builds `lantern` and puts it on `PATH`, then runs the npm script. Both modes take optional
+  file arguments to iterate on one page, and `--strict` promotes lint problems (unannotated
+  `curl`/`lantern` blocks) to failures — that's the form `prebuild` runs, so a broken or
+  unannotated example blocks the build.
 - Environment injected into each block: `LANTERN_HOST`, `LANTERN_API_KEY`, `PGLANTERN_KEY`
   (the export name the curl examples settled on), `DOCS_API_BASE`, `HOME`, `LANG=C.UTF-8`,
   and the inherited `PATH`. Nothing else — `jq`/`curl` are whatever the invoking shell has,
@@ -96,39 +97,40 @@ Runner details (as built):
 
 ### 3. A time-locked corpus: "Postgres as of January 1st, 2026"
 
-Verbatim output comparison needs frozen data, and the docs should show *real* archive data,
+Verbatim output comparison needs frozen data, and the docs should show _real_ archive data,
 not invented fixtures. Instead of authoring a bespoke seed corpus, freeze the actual one:
 
 - **Definition**: the corpus is the archive's state with a hard cutoff at
   `2026-01-01T00:00:00Z` — mail as the lists received it through December 2025 (the staged
-  mbox months *are* the boundary; audited 2026-07-23, no load-time `sent_at` filter is
-  needed — see pgml-api's `corpus-2026.md` §1), git history as the ref-locked snapshot
-  froze it; catalog-shaped data (GUCs per major, majors list) as the pipeline produced it
-  at cutoff. A natural, explainable boundary: "the state of Postgres on January 1st, 2026."
-- **Built once, frozen as a snapshot.** Reproducibility comes from a `pg_dump` artifact,
-  not from re-running ingest (ingest assigns serial ids and thread uuids as it goes, so
+  mbox months _are_ the boundary; audited 2026-07-23, no load-time `sent_at` filter is
+  needed — see pgml-api's `corpus-2026.md` §1), git history as the ref-locked snapshot froze
+  it; catalog-shaped data (GUCs per major, majors list) as the pipeline produced it at
+  cutoff. A natural, explainable boundary: "the state of Postgres on January 1st, 2026."
+- **Built once, frozen as a snapshot.** Reproducibility comes from a `pg_dump` artifact, not
+  from re-running ingest (ingest assigns serial ids and thread uuids as it goes, so
   re-ingest would shuffle identifiers; a dump freezes them exactly). Input sourcing is
   specified in pgml-api's `corpus-2026.md`: mbox months through `202512` pulled from the
   Hetzner corpus bucket, plus a git snapshot locked at 2026-01-01 (live-mirror drift on
-  branch tips and tags is the hazard being locked out). One pipeline load from those
-  inputs into `horton_docs`, refresh the matviews, dump. No id/uuid pinning needed
-  anywhere; whatever the snapshot contains is by definition stable, and cursors derived
-  from row values are stable with it.
-- **Regeneration is rare and deliberate**: only when the schema migrates or the cutoff
-  moves (e.g. an annual bump to "January 1st, 2027"). Either way it's `restore → migrate →
-  re-dump` or a fresh cutoff build, followed by `examples:update` and a reviewed diff of
-  every output block. The snapshot date can be surfaced in the docs themselves (a one-line
-  note or footer: "examples captured against the archive as of 2026-01-01"), which also
-  explains to readers why their live results include newer messages.
-- The dump also carries the harness's admin user + API key (fixed raw key inserted at
-  build time), so a restore is fully self-contained: restore, boot, run.
-- Because the data is real, examples get authored *from* the corpus: pick an actual
+  branch tips and tags is the hazard being locked out). One pipeline load from those inputs
+  into `horton_docs`, refresh the matviews, dump. No id/uuid pinning needed anywhere;
+  whatever the snapshot contains is by definition stable, and cursors derived from row
+  values are stable with it.
+- **Regeneration is rare and deliberate**: only when the schema migrates or the cutoff moves
+  (e.g. an annual bump to "January 1st, 2027"). Either way it's
+  `restore → migrate → re-dump` or a fresh cutoff build, followed by `examples:update` and a
+  reviewed diff of every output block. The snapshot date can be surfaced in the docs
+  themselves (a one-line note or footer: "examples captured against the archive as of
+  2026-01-01"), which also explains to readers why their live results include newer
+  messages.
+- The dump also carries the harness's admin user + API key (fixed raw key inserted at build
+  time), so a restore is fully self-contained: restore, boot, run.
+- Because the data is real, examples get authored _from_ the corpus: pick an actual
   interesting thread, a real sha with a `Discussion:` trailer, a real patch series — which
   is better documentation anyway, and clicking through to the live site works.
 - Storage: the dump is an artifact of the pgml-api side (not committed to either git repo —
   likely too large; store alongside the other pipeline artifacts / backups). Exact size and
-  home decided in phase 2; a trimmed cutoff (e.g. bodies only for referenced threads) is
-  the fallback if full-corpus size is unwieldy.
+  home decided in phase 2; a trimmed cutoff (e.g. bodies only for referenced threads) is the
+  fallback if full-corpus size is unwieldy.
 
 ### 4. Orchestration (lives in pgml-api)
 
@@ -141,9 +143,9 @@ here with `DOCS_API_BASE` and the key exported.
 - Locally: run the wrapper before deploying docs; once coverage is full, wire
   `examples:check` into this repo's `prebuild` so a broken example blocks `npm run build`.
 - The check needs a live server, so it cannot run inside a plain static-site CI job. The
-  guarantee is enforced at deploy time by the wrapper. (Optional later: a scheduled
-  run-only smoke against production — `--base https://pglantern.com --exit-only`, no
-  output diffs since prod data moves past the cutoff.)
+  guarantee is enforced at deploy time by the wrapper. (Optional later: a scheduled run-only
+  smoke against production — `--base https://pglantern.com --exit-only`, no output diffs
+  since prod data moves past the cutoff.)
 
 ## Phases
 
@@ -161,11 +163,11 @@ bless outputs with `examples:update`; flip those blocks to full output compariso
 clean sweep instead (2026-07-23): the deprecated pages (`cookbook`, `guides/*`,
 `concepts/*`, `cli/*`, `policies/*`) were deleted rather than re-authored, leaving
 `getting-started`, the generated OpenAPI reference, and three new corpus-authored example
-pages under `examples/` (search, correlation, pagination — the high-drift cursor
-walkthrough and error-envelope examples live there). Every command block is `check` or
-`skip=<reason>`; the lint rule is a hard failure (`--strict` is baked into
-`examples:check`), and `examples:check` runs as `prebuild`. Future pages are written per
-`docs/authoring.md`, the standing authoring reference.
+pages under `examples/` (search, correlation, pagination — the high-drift cursor walkthrough
+and error-envelope examples live there). Every command block is `check` or `skip=<reason>`;
+the lint rule is a hard failure (`--strict` is baked into `examples:check`), and
+`examples:check` runs as `prebuild`. Future pages are written per `docs/authoring.md`, the
+standing authoring reference.
 
 **Phase 4 — polish.** Document the annotation format in this repo's AGENTS.md and the
 wrapper in pgml-api's AGENTS.md; add the "captured as of 2026-01-01" footer; consider the

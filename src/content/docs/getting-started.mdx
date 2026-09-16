@@ -5,15 +5,15 @@ description: Run your first pgLantern API calls — curl or the lantern CLI, wit
 
 import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-pgLantern is a query layer over the Postgres mailing lists — `pgsql-hackers`, `pgsql-general`,
-and the rest, as structured, queryable data. Everything below hits the same API a script or CI
-job would use.
+pgLantern is a query layer over the Postgres mailing lists — `pgsql-hackers`,
+`pgsql-general`, and the rest, as structured, queryable data. Everything below hits the same
+API a script or CI job would use.
 
 ## Your first call — no key needed
 
-Every `/api/v1` endpoint works without a key on the anonymous per-IP tier
-(80 cost units/day, 10 requests/minute per IP — 80 lookups, or 16 searches).
-Base URL: `https://pglantern.com/api/v1`.
+Every `/api/v1` endpoint works without a key on the anonymous per-IP tier (80 cost
+units/day, 10 requests/minute per IP — 80 lookups, or 16 searches). Base URL:
+`https://pglantern.com/api/v1`.
 
 ```sh check=lists-anon
 curl -s https://pglantern.com/api/v1/lists | jq -r '.data[].name'
@@ -45,20 +45,20 @@ A key raises the limits (free tier: 10,000 cost units a **year** — 10,000 look
 searches — at 60 requests/minute) and ties usage to your account instead of your IP. Keyless
 requests keep a smaller daily per-IP allowance.
 
-The budget belongs to the **account**, not the key: mint one key per machine, VM, or CI job —
-there is no cap on how many — and they all spend from the same annual pool. `/users/api-keys`
-shows the pool, which key is spending it, and when it refills.
+The budget belongs to the **account**, not the key: mint one key per machine, VM, or CI job
+— there is no cap on how many — and they all spend from the same annual pool.
+`/users/api-keys` shows the pool, which key is spending it, and when it refills.
 
-The year runs from your own anniversary — the day you signed up, or your subscription's start
-date once you have one — not the calendar. `x-ratelimit-reset` on every response carries the
-exact instant.
+The year runs from your own anniversary — the day you signed up, or your subscription's
+start date once you have one — not the calendar. `x-ratelimit-reset` on every response
+carries the exact instant.
 
 <Steps>
 
 1. Sign up at [pglantern.com](https://pglantern.com).
 
-2. Mint a key at [pglantern.com/users/api-keys](https://pglantern.com/users/api-keys).
-   The raw key is shown once, at creation — copy it now.
+2. Mint a key at [pglantern.com/users/api-keys](https://pglantern.com/users/api-keys). The
+   raw key is shown once, at creation — copy it now.
 
 </Steps>
 
@@ -106,13 +106,13 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 }
 ```
 
-The full envelope carries more per message — `from_raw`, `to_raw`, `cc_raw`, `sender.email`, the
-list memberships, the archive URLs — projected out here; the [API reference](/reference/api/) has
-the exhaustive shape.
+The full envelope carries more per message — `from_raw`, `to_raw`, `cc_raw`, `sender.email`,
+the list memberships, the archive URLs — projected out here; the
+[API reference](/reference/api/) has the exhaustive shape.
 
 Default order is relevance (capped at 200 results); `sort=sent_at` switches to the uncapped,
-index-backed recency ordering. See the [search examples](/examples/search/) for the full filter
-set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
+index-backed recency ordering. See the [search examples](/examples/search/) for the full
+filter set (`list`, `from`/`to`, `sender`, `committed`, `path`, …).
 
 ### Fetch one sender
 
@@ -135,8 +135,8 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 }
 ```
 
-A bad key gets a `401` in the standard error envelope; an unknown id gets a `404` in the same
-shape.
+A bad key gets a `401` in the standard error envelope; an unknown id gets a `404` in the
+same shape.
 
 ## Install lantern
 
@@ -185,8 +185,8 @@ lantern login --host https://pglantern.com
 ```
 
 This prompts for the key you minted above, validates it against the server, then stores it —
-with the host — in `~/.config/lantern/config.json` (mode `0600`). `lantern logout` deletes the
-file. For scripts, pipe the key in instead: `lantern login --with-token < key.txt`. The
+with the host — in `~/.config/lantern/config.json` (mode `0600`). `lantern logout` deletes
+the file. For scripts, pipe the key in instead: `lantern login --with-token < key.txt`. The
 `LANTERN_HOST` / `LANTERN_API_KEY` environment variables override the config file when set.
 
 Once logged in, host and key are implicit on every command — no more repeating headers and

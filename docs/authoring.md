@@ -18,7 +18,8 @@ or unannotated example blocks `npm run build`.
 
 ## Who you're writing for
 
-A working Postgres user who is comfortable in the terminal. Full profile: `docs/ideal-customer-profile.md` in the pgml-api repo.
+A working Postgres user who is comfortable in the terminal. Full profile:
+`docs/ideal-customer-profile.md` in the pgml-api repo.
 
 Voice rules that follow from it:
 
@@ -26,14 +27,14 @@ Voice rules that follow from it:
   exclamation points, no explaining what a mailing list or a bearer token is.
 - Clear and direct, sentence-case headings. Real Postgres vocabulary (keyset pagination,
   `Discussion:` trailer) used correctly and without a glossary. But the reader knows
-  Postgres, not *this* system — don't reach for internal names to sound precise.
+  Postgres, not _this_ system — don't reach for internal names to sound precise.
 - Concrete and honest about limits: relevance search caps at 200; the API returns metadata,
   not attachment bytes; "free" still requires registration.
 - Surface quirks as facts, not apologies (a phantom ref is "data, not an error").
 
 ## How much to say
 
-Write for someone who needs to *predict* what the API will do, not audit how it was built.
+Write for someone who needs to _predict_ what the API will do, not audit how it was built.
 The test for a sentence: does it change a command the reader would write, or an outcome they
 would expect? If not, cut it. Technical audience is not a license for density — it means you
 can skip the tutorial, not that you should pack in everything true.
@@ -52,8 +53,8 @@ Leave out:
 - The SQL behind an endpoint — `tsvector` weights, the exact `plainto_tsquery` call, which
   index backs a sort. "Subject hits outrank body hits" is the fact the reader needs; the
   `setweight` expression is trivia.
-- Unrequested justification: why the implementation is what it is, what a naive version would
-  get wrong, how stock Postgres would compare.
+- Unrequested justification: why the implementation is what it is, what a naive version
+  would get wrong, how stock Postgres would compare.
 - Exhaustiveness where a shorter true statement does the same work — "ties broken by
   `sent_at`" over "ties broken by `sent_at` and `id` descending".
 
@@ -129,7 +130,7 @@ Then probe with `curl`/`jq` (key: see `scripts/docs-validate.sh`), the CLI
 (port 5433). Pick entities that carry a story — a thread that landed a commit, a GUC whose
 default changed, a patch series from a name the reader knows. Recognizable hackers and
 recent (2025) traffic beat random rows. Verify a candidate command's output looks good
-*before* enshrining it in the page.
+_before_ enshrining it in the page.
 
 Keep captured outputs small and legible — project with `jq` (`.data[] | {subject, sent_at}`,
 `@tsv` for row-shaped results, `jq -c` for one-object-per-line) rather than dumping full
@@ -144,8 +145,8 @@ published page doesn't have to hand a scraper the addresses. Around that rule:
 
 - Message-Ids are identifiers, not mailboxes. They stay verbatim even when they embed a
   personal domain (`28432.892671936@sss.pgh.pa.us`) — they're the API's lookup key.
-- Public list addresses (`pgsql-hackers@lists.postgresql.org`) and display names (`Tom Lane`)
-  are fine; the names carry the example's meaning.
+- Public list addresses (`pgsql-hackers@lists.postgresql.org`) and display names
+  (`Tom Lane`) are fine; the names carry the example's meaning.
 - `lantern`'s FROM and STARTER columns show the display name only, so CLI tabs are clean by
   default. A table that would print an address (`lantern senders get`) is a deliberate call.
 
@@ -154,7 +155,7 @@ Things the frozen corpus makes safe that would otherwise be malpractice:
 - Hardcoding a cursor from one output block into the next command (the pagination
   walkthrough does exactly this).
 - Quoting exact totals and message counts in prose next to a captured block — but remember
-  prose is *not* validated; any number or claim in prose must be double-checked against the
+  prose is _not_ validated; any number or claim in prose must be double-checked against the
   captured output it sits beside.
 
 ## Workflow

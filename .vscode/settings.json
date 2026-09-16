@@ -1,0 +1,17 @@
+{
+  // Prose here wraps at 92 (.prettierrc), matching the house style in
+  // docs/authoring.md. Format-on-save is scoped to prose only.
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "off",
+    "editor.rulers": [92]
+  },
+  "[mdx]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "off",
+    "editor.rulers": [92]
+  },
+  "prettier.enable": true
+}

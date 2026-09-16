@@ -57,8 +57,8 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 }
 ```
 
-Both cursors are now populated: `?after=next_cursor` continues forward, `?before=prev_cursor`
-walks back to page one. Repeat until the cursor comes back `null`.
+Both cursors are now populated: `?after=next_cursor` continues forward,
+`?before=prev_cursor` walks back to page one. Repeat until the cursor comes back `null`.
 
 <Aside type="caution">
 Cursors are opaque. Don't decode, parse, or construct them — the encoding is an
@@ -119,11 +119,11 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 
 Rejected outright — never a silently mixed result set. Relevance paging is also forward-only
 (`prev_cursor` is always `null`) and capped at 200 results total; `next_cursor` stops
-appearing at the cap. When `rank_window` is set, the ranking covers only that many most-recent
-matches, and the cursor keeps that decision for every later page. The `(sent_at, id)` cursors
-used by list endpoints and `?sort=sent_at` carry no query binding, page bidirectionally, and are uncapped — switch to `sort=sent_at`
-(or narrow `q`) to page deep. See [full-text search](/examples/search/) for when each order
-is the right tool.
+appearing at the cap. When `rank_window` is set, the ranking covers only that many
+most-recent matches, and the cursor keeps that decision for every later page. The
+`(sent_at, id)` cursors used by list endpoints and `?sort=sent_at` carry no query binding,
+page bidirectionally, and are uncapped — switch to `sort=sent_at` (or narrow `q`) to page
+deep. See [full-text search](/examples/search/) for when each order is the right tool.
 
 ## Threads on one list
 
