@@ -11,9 +11,10 @@ API a script or CI job would use.
 
 ## Your first call — no key needed
 
-Every `/api/v1` endpoint works without a key on the anonymous per-IP tier (80 cost
-units/day, 10 requests/minute per IP — 80 lookups, or 16 searches). Base URL:
-`https://pglantern.com/api/v1`.
+Every `/api/v1` endpoint works without a key on the anonymous per-IP tier (80 API
+credits/day, 10 requests/minute per IP — 80 lookups, or 16 searches).
+
+Base URL: `https://pglantern.com/api/v1`.
 
 ```sh check=lists-anon
 curl -s https://pglantern.com/api/v1/lists | jq -r '.data[].name'
@@ -41,24 +42,21 @@ pgsql-www
 
 ## Mint a key
 
-A key raises the limits (free tier: 10,000 cost units a **year** — 10,000 lookups, or 2,000
-searches — at 60 requests/minute) and ties usage to your account instead of your IP. Keyless
-requests keep a smaller daily per-IP allowance.
+A key raises the limits (free tier: 10,000 credits a **year** — 10,000 lookups, or 2,000
+searches — at 60 requests/minute) and ties usage to your account instead of your IP.
 
-The budget belongs to the **account**, not the key: mint one key per machine, VM, or CI job
-— there is no cap on how many — and they all spend from the same annual pool.
-`/users/api-keys` shows the pool, which key is spending it, and when it refills.
+The budget belongs to the **account**, mint as many keys as you need. `/users/api-keys`
+shows the pool, which key is spending it, and when it refills.
 
-The year runs from your own anniversary — the day you signed up, or your subscription's
-start date once you have one — not the calendar. `x-ratelimit-reset` on every response
-carries the exact instant.
+The year runs from your own anniversary, and is visible via `x-ratelimit-reset` on every
+response.
 
 <Steps>
 
 1. Sign up at [pglantern.com](https://pglantern.com).
 
 2. Mint a key at [pglantern.com/users/api-keys](https://pglantern.com/users/api-keys). The
-   raw key is shown once, at creation — copy it now.
+   raw key is only shown at creation, so put it somewhere safe.
 
 </Steps>
 
