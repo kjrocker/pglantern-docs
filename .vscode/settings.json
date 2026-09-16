@@ -4,14 +4,12 @@
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
-    "editor.wordWrap": "off",
-    "editor.rulers": [92]
+    "editor.wordWrap": "off"
   },
   "[mdx]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
-    "editor.wordWrap": "off",
-    "editor.rulers": [92]
+    "editor.wordWrap": "off"
   },
   "prettier.enable": true
 }
