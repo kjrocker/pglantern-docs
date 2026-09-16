@@ -3,22 +3,155 @@ title: Install the CLI
 description: Install, upgrade, and log in to lantern — the command-line client for the pgLantern API.
 ---
 
-{/* Scaffold — not yet written. Covers setup only; commands are discoverable via `lantern --help`. */}
+`lantern` is a `gh`-style client over the same `/api/v1` endpoints. Every command renders a
+table by default and takes `--json` for the raw response body.
 
 ## Install
 
-{/* install.sh one-liner (skip= annotation), --bin-dir, --bin-name, supported platforms, GitHub releases as the manual path. */}
+```sh skip=installs-from-the-network
+curl -fsSL https://raw.githubusercontent.com/kjrocker/pglantern-cli/main/install.sh | bash
+```
+
+Installs to `~/.local/bin` as `lantern`. Both are overridable:
+
+```sh skip=installs-from-the-network
+# somewhere else on PATH
+curl -fsSL https://raw.githubusercontent.com/kjrocker/pglantern-cli/main/install.sh \
+  | bash -s -- --bin-dir /usr/local/bin
+
+# under a different command name
+curl -fsSL https://raw.githubusercontent.com/kjrocker/pglantern-cli/main/install.sh \
+  | bash -s -- --bin-name pglantern
+```
+
+Prebuilt binaries cover Linux and macOS on amd64 and arm64; anything else builds from source
+with Go 1.24. The script verifies the download, never edits your shell rc files, and warns
+if the install directory isn't on your `PATH`. Binaries are also on the
+[GitHub releases page](https://github.com/kjrocker/pglantern-cli/releases) if you'd rather
+install by hand.
 
 ## Upgrade
 
-{/* No tested flow yet — decide between re-running install.sh and a dedicated command before writing. */}
+```sh skip=hits-github-releases
+lantern upgrade              # latest release
+lantern upgrade --check      # report installed vs latest, change nothing
+lantern upgrade --to v0.9.0  # a specific release; downgrades too
+```
+
+The binary is replaced in place — wherever it was installed, whatever it's named — after the
+same checksum verification. An install in a root-owned directory like `/usr/local/bin` needs
+`sudo`. Builds from source report version `dev` and refuse to upgrade without `--force`.
 
 ## Log in
 
-{/* lantern login --host, --with-token, config file location + mode, LANTERN_HOST / LANTERN_API_KEY override. Link /guides/authentication/. */}
+A key is optional: without one, commands run on the anonymous per-IP tier. Logging in raises
+the limits and ties usage to your account.
+
+```sh skip=interactive-prompt
+lantern login
+```
+
+This prompts for a key minted at [/users/api-keys](https://pglantern.com/users/api-keys),
+validates it, then stores it in `~/.config/lantern/config.json` (mode `0600`).
+`lantern logout` deletes the file.
+
+```sh skip=reads-a-key-from-stdin
+lantern login --with-token < key.txt          # scriptable, no prompt
+lantern login --host https://pglantern.test   # self-hosted or behind a proxy
+```
+
+Host and key resolve in this order: the `--host` / `--api-key` flags, then `LANTERN_HOST` /
+`LANTERN_API_KEY`, then the config file. See [authentication](/guides/authentication/) for
+tiers and quotas.
+
+## Setting up the Skill
+
+`lantern skill` prints the bundled `query-lantern` skill — the instructions that teach an
+agent to drive this CLI. It ships inside the binary: no key, no request.
+
+```sh check=skill
+# stdout by default — redirect or pipe it
+lantern skill > "$HOME/query-lantern.md"
+
+# -o writes the file instead, creating parent directories as needed
+lantern skill -o "$HOME/.claude/skills/query-lantern/SKILL.md"
+
+# given a path that already exists as a directory, -o writes SKILL.md inside it
+lantern skill -o "$HOME/.claude/skills/query-lantern"
+```
 
 ## Finding commands
 
-{/* lantern --help, <command> --help, --json on every command. Point at /capabilities/ for the core workflows. */}
+`lantern --help` lists the commands, `lantern <command> --help` documents the flags for one.
+`--json` works everywhere, `--no-pager` disables terminal paging, and
+`lantern completion zsh|bash|fish|powershell` emits a completion script.
+
+```sh check=commands timeout=120
+# Mailing lists and ingest history
+lantern lists
+lantern imports --list pgsql-hackers
+
+# Messages: browse, fetch one, walk its thread, read extracted references
+lantern messages --list pgsql-hackers --limit 10
+lantern messages get 'Z2DE4lDX4tHqNGZt@dev.null'
+lantern messages thread 'Z2DE4lDX4tHqNGZt@dev.null'
+lantern messages refs 'E1va3GH-003FBe-35@gemulon.postgresql.org'
+
+# Full-text search
+lantern search vacuum truncate --list pgsql-hackers --limit 5
+lantern search vacuum_truncate --committed --limit 5
+lantern search vacuum --sort sent_at --dir asc --limit 5
+
+# Threads and the people posting to them
+lantern threads --list pgsql-hackers --sort messages --dir desc --limit 5
+lantern senders --sort messages --limit 5
+lantern senders get 48
+
+# Commits
+lantern commits --q shared_buffers --path src/backend/ --limit 5
+lantern commits get 0164a0f9ee12e0eff9e4c661358a272ecd65c2d4
+
+# Mail to commit, and back
+lantern messages commits 'Z2DE4lDX4tHqNGZt@dev.null'
+lantern commits thread 0164a0f9ee12e0eff9e4c661358a272ecd65c2d4
+
+# Attachments and parsed patch series
+lantern attachments --sort size --limit 5
+lantern attachments patch 146643
+
+# Versions, GUC catalog, documentation table of contents
+lantern versions
+lantern versions gucs 18
+lantern versions gucs 18 --changed-since 17
+lantern versions docs 18
+
+# Merged commit + discussion activity for a source path
+lantern activity src/backend/access/ --limit 5
+
+# Aggregates
+lantern analytics messages --interval year
+lantern analytics top-senders -n 10
+lantern analytics thread-sizes
+
+# Escape hatch for unwrapped endpoints, and the bundled agent skill
+lantern api /messages --param limit=3
+lantern skill
+```
+
+`lantern messages open` and `lantern commits open` launch a browser at the upstream archive
+page (`--site` for the pgLantern page) — handy interactively, which is why they're not in
+the list above.
+
+Relevance search is the one command that can time out: it ranks the match set, so a query as
+broad as `vacuum` combined with linkage filters is rejected rather than run. Narrow `q`, add
+`--list` or a date bound, or switch to `--sort sent_at`.
+
+List commands print the next-page cursor to **stderr**, so tables and `--json` stay
+pipe-clean; `--all --max N` follows the cursors for you. See
+[pagination](/examples/pagination/) for the mechanics.
 
 ## Next
+
+- [What you can ask](/capabilities/) — the core workflows, one command each.
+- [Full-text search](/examples/search/) — filters, ranking, and `sort=sent_at`.
+- [Authentication](/guides/authentication/) — keys, tiers, and quotas.

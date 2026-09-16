@@ -6,17 +6,15 @@ description: Keyset cursors on every list endpoint — opaque tokens, composite 
 import { Aside } from '@astrojs/starlight/components';
 
 Every list endpoint (`/messages`, `/search`, `/threads`, `/senders`, `/commits`,
-`/attachments`, `/imports`) is keyset-paginated. There is no offset or page-number
-pagination anywhere in the API. A page carries `next_cursor` and `prev_cursor` — opaque
-strings, either `null` when there's no further page in that direction — and you hand one
-back as `?after=` or `?before=`.
+`/attachments`, `/imports`) is keyset-paginated. A page carries `next_cursor` and
+`prev_cursor` — opaque strings, either `null` when there's no further page in that direction
+— and you hand one back as `?after=` or `?before=`.
 
-All examples assume a key in `$PGLANTERN_KEY`; outputs were captured against the archive as
-of 2026-01-01, which is what makes the literal cursors below reproducible.
+All examples assume a key in `$PGLANTERN_KEY`.
 
 ## Walk a collection
 
-Page one — newest pgsql-hackers traffic at the corpus cutoff, three at a time:
+Page one — newest pgsql-hackers traffic, three at a time:
 
 ```sh check=page-one
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -58,20 +56,13 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 ```
 
 Both cursors are now populated: `?after=next_cursor` continues forward,
-`?before=prev_cursor` walks back to page one. Repeat until the cursor comes back `null`.
+`?before=prev_cursor` walks back to page one.
 
 <Aside type="caution">
 Cursors are opaque. Don't decode, parse, or construct them — the encoding is an
 implementation detail that can change between releases. The only supported operations are
 "hand back a cursor you were given" and "compare it to `null`."
 </Aside>
-
-## Ordering is always composite
-
-The tuple behind a cursor is never a bare timestamp. `sent_at` is `timestamptz` and collides
-— same-batch arrivals, normalized missing `Date` headers — so every keyset order is at
-minimum `(sent_at, id)`, tie-broken on the unique surrogate `id`. `sent_at` alone would
-silently skip or duplicate rows sharing a timestamp across a page boundary.
 
 ## `limit` and the error envelope
 
@@ -101,10 +92,11 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 
 ## Relevance cursors are query-scoped
 
-`/search`'s default relevance order ranks with `ts_rank_cd`, computed per query at request
-time — so a relevance cursor is only meaningful for the exact `q` that produced it, and the
-cursor embeds a hash of the normalized query to enforce that. Take a cursor from one query
-and replay it against another:
+`/search`'s default relevance order ranks with `ts_rank_cd`, computed per query — so a
+cursor is only meaningful for the exact search that produced it, and the cursor embeds the
+query to enforce that.
+
+Take a cursor from one query and replay it against another:
 
 ```sh check=cursor-rebind
 cursor=$(curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -117,55 +109,8 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 {"error":{"code":"invalid_cursor","message":"The pagination cursor is not valid."}}
 ```
 
-Rejected outright — never a silently mixed result set. Relevance paging is also forward-only
-(`prev_cursor` is always `null`) and capped at 200 results total; `next_cursor` stops
-appearing at the cap. When `rank_window` is set, the ranking covers only that many
-most-recent matches, and the cursor keeps that decision for every later page. The
-`(sent_at, id)` cursors used by list endpoints and `?sort=sent_at` carry no query binding,
-page bidirectionally, and are uncapped — switch to `sort=sent_at` (or narrow `q`) to page
-deep. See [full-text search](/examples/search/) for when each order is the right tool.
-
-## Threads on one list
-
-`/threads?list=` keeps threads with at least one message on that list, but returns each one
-whole: `message_count`, `started_at`, and `last_activity_at` stay thread-wide, unscoped —
-unlike `/senders?list=` and `/messages?list=`. The cursor binds `list` along with `sort` and
-`dir`, so switching any of the three mid-page is the same 400 as switching sort alone.
-
-```sh check=threads-list
-curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
-  "https://pglantern.com/api/v1/threads?list=pgsql-hackers&limit=3" \
-  | jq '.data[] | {subject, message_count, last_activity_at}'
-```
-
-```json output=threads-list
-{
-  "subject": "Planner : anti-join on left joins",
-  "message_count": 3,
-  "last_activity_at": "2025-12-31T23:54:00Z"
-}
-{
-  "subject": "PL/Python initialization cleanup",
-  "message_count": 2,
-  "last_activity_at": "2025-12-31T23:34:53Z"
-}
-{
-  "subject": "Create unique GiST indexes",
-  "message_count": 1,
-  "last_activity_at": "2025-12-31T22:55:13Z"
-}
-```
-
-```sh check=cli-threads-list
-lantern threads --list pgsql-hackers --limit 3
-```
-
-```txt output=cli-threads-list
-SUBJECT                            STARTER                 MESSAGES  FIRST                 LAST ACTIVITY         MESSAGE-ID
-Planner : anti-join on left joins  Nicolas Adenis-Lamarre  3         2025-12-31T09:59:26Z  2025-12-31T23:54:00Z  CACPGbctKMDP50PpRH09in+oWbHtZdahWSroRstLPOoSDKwoFsw@mail.gmail.com
-PL/Python initialization cleanup   Peter Eisentraut        2         2025-12-31T08:47:32Z  2025-12-31T23:34:53Z  f31333f1-fbb7-4098-b209-bf2d71fbd4f3@eisentraut.org
-Create unique GiST indexes         Paul Jungwirth          1         2025-12-31T22:55:13Z  2025-12-31T22:55:13Z  CA+renyUKo9GC+btg07E2Dt8998kWxSvM-4z16jUA7SOxDcJ9OQ@mail.gmail.com
-```
+Relevance paging is also forward-only (`prev_cursor` is always `null`) and capped at 200
+results total; `next_cursor` stops appearing at the cap.
 
 ## Cursors in the CLI
 
@@ -180,8 +125,7 @@ lantern messages --list pgsql-hackers --limit 3 >/dev/null
 # next: --after g3QAAAABdwF2bAAAAAJuBwBAQU3sR0cGYgARbnJq
 ```
 
-For bulk pulls, `--all` follows `next_cursor` server-side page by page, bounded by `--max`
-(default 5000 rows) — a fetch loop you don't have to write:
+For bulk pulls, `--all` follows `next_cursor` server-side page by page, bounded by `--max`.
 
 ```sh check=cli-all
 lantern messages --list pgsql-hackers --from 2025-12-29 --all --max 500 --json \

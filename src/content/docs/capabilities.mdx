@@ -3,18 +3,102 @@ title: What you can ask
 description: The core questions pgLantern answers, driven from the lantern CLI — commits to discussions, threads to commits, and GUCs across versions.
 ---
 
-{/* Scaffold — not yet written. CLI-first (lantern), not curl; one short workflow per section. Overview only — deep mechanics stay in /examples/correlation/. */}
+Three questions the archive answers that a mail search box can't. Each is one `lantern`
+command; [commits and discussions](/examples/correlation/) covers the mechanics and the
+`curl` equivalents.
+
+Outputs were captured against the archive as of 2026-01-01.
 
 ## Commit → messages
 
-{/* lantern commits get / commits thread <sha>: from a SHA to the discussion its Discussion: trailer points at. */}
+From a commit sha to its discussion. In this case the first five messages of the thread
+behind `vacuum_truncate`:
+
+```sh check=commit-thread
+lantern commits thread 0164a0f9ee12e0eff9e4c661358a272ecd65c2d4 --json \
+  | jq -r '.data.threads[0].messages[:5][] | [.sent_at, .sender.display_name, .subject] | @tsv'
+```
+
+```txt output=commit-thread
+2024-12-17T00:25:06Z	Will Storey	Disabling vacuum truncate for autovacuum
+2024-12-17T07:30:19Z	Laurenz Albe	Re: Disabling vacuum truncate for autovacuum
+2024-12-17T18:03:44Z	Will Storey	Re: Disabling vacuum truncate for autovacuum
+2024-12-26T20:21:08Z	Jeremy Schneider	Re: Disabling vacuum truncate for autovacuum
+2024-12-26T21:24:03Z	Will Storey	Re: Disabling vacuum truncate for autovacuum
+```
+
+Without `--json` the same command prints the whole thread as a table. The sha must be the
+full 40 hex characters, and a commit with no linked discussion comes back with no threads
+rather than a `404`.
 
 ## Message or thread → commits
 
-{/* lantern messages commits <message-id>: what landed from a thread. */}
+The reverse edge: what landed from a thread.
+
+```sh check=message-commits
+lantern messages commits 'Z2DE4lDX4tHqNGZt@dev.null'
+```
+
+```txt output=message-commits
+# Expand comment for isset_offset.
+SHA                                       AUTHOR                                  COMMITTED AT          SUBJECT
+7d559c8580f722dc40f2c34573e53e33626679e0  Nathan Bossart <nathan@postgresql.org>  2025-03-24T20:47:02Z  Expand comment for isset_offset.
+
+# Add vacuum_truncate configuration parameter.
+SHA                                       AUTHOR                                  COMMITTED AT          SUBJECT
+0164a0f9ee12e0eff9e4c661358a272ecd65c2d4  Nathan Bossart <nathan@postgresql.org>  2025-03-20T15:16:50Z  Add vacuum_truncate configuration parameter.
+```
+
+Commits are grouped by subject. An empty result means the thread never landed anything.
 
 ## GUCs
 
-{/* lantern gucs <major> (+ changed-since), lantern docs <major>: what a setting is, when it changed. */}
+What changed between two majors, in four buckets:
+
+```sh check=guc-diff
+lantern versions gucs 18 --changed-since 17 --json \
+  | jq '{added: (.data.added|length), removed: (.data.removed|length),
+         default_changed: (.data.default_changed|length),
+         context_changed: (.data.context_changed|length)}'
+```
+
+```json output=guc-diff
+{
+  "added": 21,
+  "removed": 2,
+  "default_changed": 5,
+  "context_changed": 1
+}
+```
+
+Each row carries the commit that changed the setting and the thread that argued it:
+
+```sh check=guc-row
+lantern versions gucs 18 --changed-since 17 --json \
+  | jq '.data.added[] | select(.name == "vacuum_truncate")
+        | {name, context, boot_val, commit: .commit.subject, thread: .thread.message_id}'
+```
+
+```json output=guc-row
+{
+  "name": "vacuum_truncate",
+  "context": "user",
+  "boot_val": "on",
+  "commit": "Add vacuum_truncate configuration parameter.",
+  "thread": "Z2DE4lDX4tHqNGZt@dev.null"
+}
+```
+
+That `thread.message_id` is the input to the second command on this page, and the
+`commit.sha` is the input to the first. `commit` and `thread` are both nullable — not every
+catalog change traces back to an archived discussion.
+
+`lantern versions gucs 18` drops `--changed-since` for the full catalog, and
+`lantern versions docs 18` lists that major's documentation pages.
 
 ## Next
+
+- [Install the CLI](/guides/cli/) — install, log in, and the full command list.
+- [Commits and discussions](/examples/correlation/) — refs, patches, and path activity.
+- [Full-text search](/examples/search/) — the `committed`, `path`, and `major` filters.
+- [Connect via MCP](/guides/mcp/) — the same workflows as agent tools.
