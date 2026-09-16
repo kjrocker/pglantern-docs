@@ -1,12 +1,53 @@
 ---
 title: pgLantern
-description: The pgLantern API documentation is under construction.
+description: The Postgres mailing lists and commit history as queryable data — a JSON API at pglantern.com/api/v1, the lantern CLI, and an MCP server.
 template: splash
 hero:
-  tagline: 🚧 Documentation under construction
+  tagline: The Postgres mailing lists and commit history as structured, queryable data.
+  actions:
+    - text: Getting started
+      link: /getting-started/
+      icon: right-arrow
+    - text: API reference
+      link: /reference/api/
+      variant: minimal
+    - text: Install the CLI
+      link: /guides/cli/
+      variant: minimal
 ---
 
-These docs aren't ready yet. Pages are still being written and may change or disappear
-without notice.
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-If you were sent a direct link, it still works — paste the URL into your address bar.
+Messages, threads, senders, commits, and GUCs from `pgsql-hackers`, `pgsql-general`, and the
+rest, served from `https://pglantern.com/api/v1`. Full-text search is synonym- and
+plural-aware, and commits link to the threads that discussed them. No key needed for your
+first call.
+
+<CardGrid>
+	<LinkCard
+		title="Getting started"
+		href="/getting-started/"
+		description="First calls with curl or lantern, then mint a key."
+	/>
+	<LinkCard
+		title="Authentication"
+		href="/guides/authentication/"
+		description="Keys, credits, rate limits, and the headers that report them."
+	/>
+	<LinkCard
+		title="What you can ask"
+		href="/capabilities/"
+		description="Commit to discussion, thread to commit, GUCs across versions."
+	/>
+	<LinkCard
+		title="Connect via MCP"
+		href="/guides/mcp/"
+		description="Point an agent at https://pglantern.com/mcp."
+	/>
+	<LinkCard
+		title="Examples"
+		href="/examples/search/"
+		description="Full-text search, commit correlation, and pagination."
+	/>
+	<LinkCard title="Roadmap" href="/roadmap/" description="What's being built next." />
+</CardGrid>

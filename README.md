@@ -15,7 +15,6 @@ unannotated command blocks fail the build.
 ```
 src/content/docs/   the pages — .md/.mdx, routed by filename
 src/openapi/        committed OpenAPI snapshot; the API reference is generated from it
-src/routeData.ts    injects the site-wide "under construction" banner
 public/             copied verbatim into dist/ — favicon, _headers, robots.txt
 scripts/            validate-examples.mjs, the example harness
 ```
