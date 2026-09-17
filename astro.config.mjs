@@ -40,6 +40,7 @@ export default defineConfig({
 						{ label: 'Install the CLI', slug: 'guides/cli' },
 						{ label: 'What you can ask', slug: 'capabilities' },
 						{ label: 'Connect via MCP', slug: 'guides/mcp' },
+						{ label: 'Watches', slug: 'guides/watches' },
 						{
 							label: 'Examples',
 							items: [

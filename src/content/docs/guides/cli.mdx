@@ -133,6 +133,13 @@ lantern analytics messages --interval year
 lantern analytics top-senders -n 10
 lantern analytics thread-sizes
 
+# Watches (create/pause/delete need a key minted with manage access)
+lantern watches
+lantern watches endpoints
+id=$(lantern watches create --type query --q io_uring --list pgsql-hackers --json | jq -r .data.id)
+lantern watches pause "$id"
+lantern watches delete "$id"
+
 # Escape hatch for unwrapped endpoints, and the bundled agent skill
 lantern api /messages --param limit=3
 lantern skill

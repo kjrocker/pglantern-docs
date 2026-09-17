@@ -32,9 +32,16 @@ of API keys you can have. Every key belongs to a team and draws from that team's
 your personal team by default, or a shared team you're a member of, picked when you mint the
 key — and I track how much each key uses independently so you can see where the usage is.
 
-Keys are not permissioned, are read only, and all keys are equivalent. The ability to
-modify/manage keys is intentionally not part of the API. As with all things, reach out if
-you have a use case for this.
+A key is minted with one of two access levels, and the level never changes — revoke and
+mint again to switch:
+
+- **read** (the default) — the whole corpus, plus listing your [watches](/guides/watches/)
+  and webhook endpoints.
+- **manage** — everything read can do, plus creating, pausing and deleting watches over
+  `POST`/`PATCH`/`DELETE /watches`. A read key on those routes gets a `403 key_read_only`.
+
+Managing keys themselves is intentionally not part of the API. As with all things, reach out
+if you have a use case for this.
 
 Recommended usage is one key per machine/purpose. For example: one key for your local
 `lantern` installation and another key for your agent's MCP server.
@@ -47,7 +54,8 @@ If you're using the `lantern` CLI, a simple `lantern login` will prompt you to e
 A few features require a key and aren't available anonymously:
 
 1. The MCP Server
-2. That's it, for now.
+2. `/watches` and `/webhook-endpoints` — a watch has to belong to a team, so even the
+   listings need a key.
 
 {/* Authorization: Bearer vs X-API-Key (Authorization checked first). lantern login / LANTERN_API_KEY. MCP requires a key. */}
 
@@ -77,7 +85,7 @@ Quota is spent in credits, priced per route:
 
 | Cost | Routes                                                                                                                                                                                                         |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `lists`, `versions`, `versions/:major/gucs`, `versions/:major/docs`, `imports`, `messages/:id` (+ `/thread`, `/commits`, `/refs`), `senders/:id`, `commits/:sha` (+ `/thread`), `attachments/:id` (+ `/patch`) |
+| 1    | `lists`, `versions`, `versions/:major/gucs`, `versions/:major/docs`, `imports`, `messages/:id` (+ `/thread`, `/commits`, `/refs`), `senders/:id`, `commits/:sha` (+ `/thread`), `attachments/:id` (+ `/patch`), `watches` (+ `/:id`, every method), `webhook-endpoints` |
 | 2    | `messages`, `senders`, `threads`, `commits`, `attachments`, `source/activity`                                                                                                                                  |
 | 5    | `search`, `analytics/*`                                                                                                                                                                                        |
 
@@ -111,6 +119,7 @@ request. Leaving a team revokes your keys on it.
 | No key at all                      | 200    | anonymous tier             |
 | Suspended account                  | 403    | `account_suspended`        |
 | Team subscription lapsed           | 403    | `team_subscription_lapsed` |
+| Read key writing to `/watches`     | 403    | `key_read_only`            |
 | Over quota or burst                | 429    | `rate_limited`             |
 
 A key on a shared team stops working with `team_subscription_lapsed` when that team's
@@ -121,3 +130,6 @@ Credits a revoked key already spent stay on the team's pool for the year — rev
 minting again is not a quota reset.
 
 ## Next
+
+- [Watches](/guides/watches/) — what a manage key unlocks.
+- [Getting started](/getting-started/) — minting a key and the first request.

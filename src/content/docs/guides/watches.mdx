@@ -1,0 +1,150 @@
+---
+title: Watches
+description: Standing subscriptions over the archive — create, pause, and delete them over /watches with a manage key, and pick a daily or weekly email cadence.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+A watch is a standing subscription: a query, a sender, a thread, a source path, or a
+configuration parameter, and a place to deliver new matches to — an email digest, or a
+signed webhook on paid plans. `/watches` manages them over the API; the same watches show up
+on the [watches page](https://pglantern.com/users/watches).
+
+All examples assume a key in `$PGLANTERN_KEY` (see [getting started](/getting-started/));
+every output block was captured against the archive as of 2026-01-01. The writes below need
+a key minted with **manage** access — see
+[authentication](/guides/authentication/#mint-a-key).
+
+## The lifecycle
+
+`POST /watches` creates one, `GET /watches/{id}` reads it back, `PATCH /watches/{id}` pauses
+it, and `DELETE /watches/{id}` removes it. The create body is `type`, `channel`, `params`
+(keyed by type — the table is below), and optionally `cadence` for email or `endpoint_id`
+for a webhook. The response is the watch; `id` is what every later call takes.
+
+<Tabs>
+<TabItem label="curl">
+
+```sh check=watch-lifecycle
+id=$(curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"query","channel":"email","cadence":"weekly","params":{"q":"io_uring","list":"pgsql-hackers"}}' \
+  "https://pglantern.com/api/v1/watches" | jq -r .data.id)
+
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/watches/$id" \
+  | jq -c '.data | {type, channel, cadence, active, params}'
+
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  -H "Content-Type: application/json" -X PATCH -d '{"active":false}' \
+  "https://pglantern.com/api/v1/watches/$id" \
+  | jq -c '.data | {active, cadence}'
+
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $PGLANTERN_KEY" \
+  -X DELETE "https://pglantern.com/api/v1/watches/$id"
+```
+
+```txt output=watch-lifecycle
+{"type":"query","channel":"email","cadence":"weekly","active":true,"params":{"list":"pgsql-hackers","q":"io_uring"}}
+{"active":false,"cadence":"weekly"}
+204
+```
+
+</TabItem>
+<TabItem label="lantern">
+
+```sh check=watch-lifecycle-cli
+id=$(lantern watches create --type query --q io_uring --list pgsql-hackers --cadence weekly --json | jq -r .data.id)
+lantern watches get "$id"
+lantern watches pause "$id"
+lantern watches cadence "$id" daily
+lantern watches delete "$id"
+```
+
+</TabItem>
+</Tabs>
+
+A watch fires on the future, never on history: it starts matching from the moment it is
+created, so creating a `query` watch for a term with a thousand past hits sends nothing
+until the next new message matches. `GET /watches` lists the team's watches, newest first,
+with no pagination — plans cap a team at 50.
+
+## Params by type
+
+| `type`   | Required in `params`                                                  | Optional                                       |
+| -------- | --------------------------------------------------------------------- | ---------------------------------------------- |
+| `query`  | `q` — the same syntax as [`/search`](/examples/search/)               | `list`, `sender` (display-name substring)      |
+| `thread` | `message_id` — the thread **starter's** Message-Id, brackets optional |                                                |
+| `sender` | `sender_id` — the numeric id from `/senders`                          |                                                |
+| `path`   | `path` — a source path prefix like `src/backend/access/heap/`         | `major` — restrict commits to one release line |
+| `guc`    | `name` — a configuration parameter                                    |                                                |
+
+A `sender_id`, `list`, `major` or GUC `name` that does not exist is a `422 invalid_params`
+with `details.param` set to `params` — a watch on nothing would never fire, so it is refused
+up front. A thread starter does not have to exist yet; the mail may simply not be ingested.
+
+## Email cadence
+
+An email watch has a `cadence`, `daily` unless you say otherwise:
+
+- **`daily`** — one email per archive refresh that matched, coalescing every daily watch you
+  own into one message. With the daily refresh that is at most one email a day.
+- **`weekly`** — matches accumulate and go out in one email every Monday morning (06:00
+  UTC), grouped by watch with a line per day it fired.
+
+`PATCH` with `{"cadence":"weekly"}` switches an existing watch; nothing already queued is
+lost. Cadence is email-only — a `PATCH` setting it on a webhook watch is a `422`. Pausing a
+watch (`{"active":false}`) stops it matching; a paused weekly watch still sends what it
+already collected on Monday.
+
+## Webhook delivery
+
+Webhook watches (`"channel":"webhook"`) need a paid plan and an `endpoint_id`. Endpoints are
+created — and their signing secrets rotated — on the
+[watches page](https://pglantern.com/users/watches), never over the API; the API lists them
+so a script can find the id to point a watch at:
+
+```sh check=endpoints
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/webhook-endpoints"
+```
+
+```json output=endpoints
+{"data":[]}
+```
+
+Each endpoint is `{id, url, active, disabled_at}` — no secret. A webhook watch on a plan
+without webhooks is a `403 webhooks_not_available`.
+
+## Keys and errors
+
+Every `/watches` route needs a key, reads included — an anonymous caller has no team to own
+a watch. Writes need a key minted with **manage** access; a read key gets:
+
+```sh skip=needs-a-read-only-key
+curl -s -H "Authorization: Bearer $READ_ONLY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"query","channel":"email","params":{"q":"io_uring"}}' \
+  "https://pglantern.com/api/v1/watches"
+```
+
+```json
+{"error":{"code":"key_read_only","message":"This API key is read-only. Mint a key with manage access at /users/api-keys."}}
+```
+
+| Case                                            | Status | `code`                   |
+| ----------------------------------------------- | ------ | ------------------------ |
+| No key                                          | 401    | `unauthorized`           |
+| Read key on `POST`, `PATCH` or `DELETE`         | 403    | `key_read_only`          |
+| Plan's watch limit reached                      | 403    | `watch_limit_reached`    |
+| Webhook channel on a plan without webhooks      | 403    | `webhooks_not_available` |
+| Unknown body field, bad `params`, empty `PATCH` | 422    | `invalid_params`         |
+| Watch on another team, or no such id            | 404    | `not_found`              |
+
+Every `/watches` call costs 1 credit, `POST`/`PATCH`/`DELETE` included.
+
+## Next
+
+- [Authentication](/guides/authentication/) — minting a manage key.
+- [Full-text search](/examples/search/) — the `q` syntax a `query` watch uses.
+- [Install the CLI](/guides/cli/) — `lantern watches` wraps every call on this page.
