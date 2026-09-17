@@ -28,8 +28,9 @@ Register with your email (we won't send you anything you don't ask for), and go 
 [API Keys page](https://pglantern.com/users/api-keys) to make your key.
 
 We only show the full key once, so put it somewhere safe. There are no limits on the number
-of API keys you can have, every key draws from your account's quota, and I track how much
-each key uses independantly so you can see where the usage is.
+of API keys you can have. Every key belongs to a team and draws from that team's quota —
+your personal team by default, or a shared team you're a member of, picked when you mint the
+key — and I track how much each key uses independently so you can see where the usage is.
 
 Keys are not permissioned, are read only, and all keys are equivalent. The ability to
 modify/manage keys is intentionally not part of the API. As with all things, reach out if
@@ -52,8 +53,9 @@ A few features require a key and aren't available anonymously:
 
 ## Quota and limits
 
-Your account quota is shared across all your API keys, and reset every year. There's no
-rollover.
+Quota belongs to a team. Your personal team's quota is shared across every key you mint on
+it; a shared team's quota is one pool for every member's keys on that team. Both reset every
+year from the subscription anniversary. There's no rollover.
 
 Each request attaches `x-request-cost`, `x-ratelimit-*`, and a few other headers to give you
 an idea of your usage.
@@ -94,23 +96,28 @@ the only response that doesn't count.
 If you run out of your quota early, please reach out to me. I always want examples of heavy
 use patterns.
 
-{/* Budget is per account, shared across keys. Yearly window from your anniversary. Credits per route, x-request-cost, x-ratelimit-* headers, 429. */}
+{/* Budget is per team, shared across keys. Yearly window from the anniversary. Credits per route, x-request-cost, x-ratelimit-* headers, 429. */}
 
 ## Revoking a key
 
-Keys can be revoked from the UI. Revoking deletes the key, so a revoked key is
-indistinguishable from one that never existed — and there is no caching in the lookup, so it
-stops working on the very next request.
+Keys can be revoked from the UI. A revoked key is indistinguishable from one that never
+existed — and there is no caching in the lookup, so it stops working on the very next
+request. Leaving a team revokes your keys on it.
 
-| Case                               | Status | `code`              |
-| ---------------------------------- | ------ | ------------------- |
-| Revoked, unknown, or malformed key | 401    | `unauthorized`      |
-| Key past its expiry date           | 401    | `unauthorized`      |
-| No key at all                      | 200    | anonymous tier      |
-| Suspended account                  | 403    | `account_suspended` |
-| Over quota or burst                | 429    | `rate_limited`      |
+| Case                               | Status | `code`                     |
+| ---------------------------------- | ------ | -------------------------- |
+| Revoked, unknown, or malformed key | 401    | `unauthorized`             |
+| Key past its expiry date           | 401    | `unauthorized`             |
+| No key at all                      | 200    | anonymous tier             |
+| Suspended account                  | 403    | `account_suspended`        |
+| Team subscription lapsed           | 403    | `team_subscription_lapsed` |
+| Over quota or burst                | 429    | `rate_limited`             |
 
-Credits a revoked key already spent stay on the account's pool for the year — revoking and
+A key on a shared team stops working with `team_subscription_lapsed` when that team's
+subscription lapses; nothing is deleted, and the keys come back when an owner renews. Your
+personal team's keys are unaffected — they fall back to the free tier instead.
+
+Credits a revoked key already spent stay on the team's pool for the year — revoking and
 minting again is not a quota reset.
 
 ## Next
