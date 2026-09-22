@@ -100,9 +100,9 @@ already collected on Monday.
 ## Webhook delivery
 
 Webhook watches (`"channel":"webhook"`) need a paid plan and an `endpoint_id`. Endpoints are
-created — and their signing secrets rotated — on the
-[watches page](https://pglantern.com/users/watches), never over the API; the API lists them
-so a script can find the id to point a watch at:
+created, configured (name, bearer or basic auth, custom request headers) and their signing
+secrets rotated on the [webhooks page](https://pglantern.com/users/watches/webhooks), never
+over the API; the API lists them so a script can find the id to point a watch at:
 
 ```sh check=endpoints
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -113,8 +113,14 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 {"data":[]}
 ```
 
-Each endpoint is `{id, url, active, disabled_at}` — no secret. A webhook watch on a plan
-without webhooks is a `403 webhooks_not_available`.
+Each endpoint is `{id, name, url, active, disabled_at, auth_type, headers}` — `headers` is
+the custom header _names_; no secret, no credential, no header value. A webhook watch on a
+plan without webhooks is a `403 webhooks_not_available`.
+
+The webhooks page can also send a test event: the same signed `POST` as a real delivery,
+with `event.type` `watch.test`, `event.watch` `null` and the nil UUID as
+`x-horton-watch-id`. It is never stored and never counts as a failure, so a consumer should
+accept `watch.test` alongside `watch.matched` — the signature verifies the same way.
 
 ## Keys and errors
 
