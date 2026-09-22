@@ -87,15 +87,15 @@ up front. A thread starter does not have to exist yet; the mail may simply not b
 
 An email watch has a `cadence`, `daily` unless you say otherwise:
 
-- **`daily`** — one email per archive refresh that matched, coalescing every daily watch you
-  own into one message. With the daily refresh that is at most one email a day.
+- **`daily`** — one email a day at 06:00 UTC coalescing every daily watch you own, covering
+  everything matched since the last one, however often the archive refreshes.
 - **`weekly`** — matches accumulate and go out in one email every Monday morning (06:00
   UTC), grouped by watch with a line per day it fired.
 
 `PATCH` with `{"cadence":"weekly"}` switches an existing watch; nothing already queued is
 lost. Cadence is email-only — a `PATCH` setting it on a webhook watch is a `422`. Pausing a
-watch (`{"active":false}`) stops it matching; a paused weekly watch still sends what it
-already collected on Monday.
+watch (`{"active":false}`) stops it matching; a paused watch still sends what it already
+collected at its cadence.
 
 ## Webhook delivery
 
