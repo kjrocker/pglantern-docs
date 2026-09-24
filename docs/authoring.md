@@ -50,7 +50,7 @@ Never hold back:
 
 Leave out:
 
-- The SQL behind an endpoint — `tsvector` weights, the exact `plainto_tsquery` call, which
+- The SQL behind an endpoint — `tsvector` weights, the exact tsquery call, which
   index backs a sort. "Subject hits outrank body hits" is the fact the reader needs; the
   `setweight` expression is trivia.
 - Unrequested justification: why the implementation is what it is, what a naive version

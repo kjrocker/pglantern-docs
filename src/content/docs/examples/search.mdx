@@ -54,6 +54,84 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 {"error":{"code":"invalid_query","message":"A non-blank search query (q) is required."}}
 ```
 
+## Query syntax
+
+Separate words AND together. A compound identifier is matched as a **phrase**, not as its
+parts — searching `pg_monitor` won't drag in every message that happens to mention `pg`
+somewhere near `monitoring`:
+
+```sh check=compound
+for q in "pg_monitor" "pg monitor"; do
+  printf '%-14s' "$q"
+  curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+    --get --data-urlencode "q=$q" --data-urlencode "limit=1" \
+    "https://pglantern.com/api/v1/search" | jq -r '"\(.total) \(.total_exact)"'
+done
+```
+
+```txt output=compound
+pg_monitor    431 true
+pg monitor    6555 true
+```
+
+The gap is the point: `pg_monitor` is one identifier, `pg monitor` is two words that may sit
+paragraphs apart. Every `pg_*` name in the archive contributes a bare `pg`, so the loose
+form is mostly noise.
+
+Quote a phrase to require the words adjacent and in order:
+
+```sh check=phrase
+for q in 'lock contention' '"lock contention"'; do
+  printf '%-20s' "$q"
+  curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+    --get --data-urlencode "q=$q" --data-urlencode "limit=1" \
+    "https://pglantern.com/api/v1/search" | jq -r '"\(.total) \(.total_exact)"'
+done
+```
+
+```txt output=phrase
+lock contention     7925 true
+"lock contention"   1277 true
+```
+
+`OR` widens; a leading `-` excludes:
+
+```sh check=operators
+for q in 'pg_monitor' 'pg_read_all_stats' 'pg_monitor OR pg_read_all_stats' 'pg_monitor -grant'; do
+  printf '%-34s' "$q"
+  curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+    --get --data-urlencode "q=$q" --data-urlencode "limit=1" \
+    "https://pglantern.com/api/v1/search" | jq -r '"\(.total) \(.total_exact)"'
+done
+```
+
+```txt output=operators
+pg_monitor                        431 true
+pg_read_all_stats                 339 true
+pg_monitor OR pg_read_all_stats   667 true
+pg_monitor -grant                 141 true
+```
+
+Two consequences worth knowing before you script against this: a bare `or` is an operator,
+not a word, and a term written `-foo` excludes rather than requires.
+
+From the CLI the query is the positional argument, so phrase quotes have to survive the
+shell — wrap them in single quotes:
+
+```sh check=phrase-cli
+lantern search '"lock contention"' --limit 1 --json | jq -r '.total'
+```
+
+```txt output=phrase-cli
+1277
+```
+
+Matching is still stemmed inside a phrase: `"pg_monitor"` also matches an adjacent "pg
+monitoring". There is no fully literal, case-sensitive mode.
+
+Malformed input is not an error — an unbalanced quote or a lone `-` simply matches nothing.
+Only a blank `q` is rejected.
+
 ## The `pg` text search config
 
 pgLantern uses a modifed text search configuration that includes domain specific language
