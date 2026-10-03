@@ -250,7 +250,7 @@ Re: Disabling vacuum truncate for autovacuum
 A `major` that isn't a real branch, or a non-boolean `committed`, is `invalid_params` (422)
 with the offending field named in `details.param`.
 
-## Metadata filters: `sender`, `from`/`to`, `list`
+## Metadata filters: `sender`, `sender_id`, `from`/`to`, `list`
 
 `sender` searches over the sender's email or display name; `from`/`to` are ISO-8601 bounds
 on `sent_at`; `list` restricts to one mailing list:
@@ -275,6 +275,24 @@ curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
 
 Composing `sender` with `sort=sent_at` is the "one person's history on a topic" recipe —
 exhaustive and chronological, not capped at 200.
+
+`sender` is a substring, so it also catches anyone whose name or address shares it. To pin
+exactly one sender, pass `sender_id` — the `id` from `/senders`. It works on `/search` and on
+`/messages`, where it pages through everything that sender posted:
+
+```sh check=sender-id-history
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/messages?sender_id=48&list=pgsql-hackers&limit=3" \
+  | jq -r '.data[] | [.sent_at, .sender.display_name, .subject] | @tsv'
+```
+
+```txt output=sender-id-history
+2025-12-31T23:37:36Z	Tom Lane	Re: Planner : anti-join on left joins
+2025-12-31T18:37:21Z	Tom Lane	Re: Add "format" target to make and ninja to run pgindent and\n pgperltidy
+2025-12-31T17:04:41Z	Tom Lane	Re: Can we remove support for standard_conforming_strings = off yet?
+```
+
+A non-integer `sender_id` is `invalid_params` (422).
 
 ## Next
 
