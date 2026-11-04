@@ -32,8 +32,8 @@ of API keys you can have. Every key belongs to a team and draws from that team's
 your personal team by default, or a shared team you're a member of, picked when you mint the
 key — and I track how much each key uses independently so you can see where the usage is.
 
-A key is minted with one of two access levels, and the level never changes — revoke and
-mint again to switch:
+A key is minted with one of two access levels, and the level never changes — revoke and mint
+again to switch:
 
 - **read** (the default) — the whole corpus, plus listing your [watches](/guides/watches/)
   and webhook endpoints.
@@ -83,11 +83,11 @@ ones.
 
 Quota is spent in credits, priced per route:
 
-| Cost | Routes                                                                                                                                                                                                         |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `lists`, `versions`, `versions/:major/gucs`, `versions/:major/docs`, `imports`, `messages/:id` (+ `/thread`, `/commits`, `/refs`), `senders/:id`, `commits/:sha` (+ `/thread`), `attachments/:id` (+ `/patch`), `watches` (+ `/:id`, every method), `webhook-endpoints` |
-| 2    | `messages`, `senders`, `threads`, `commits`, `attachments`, `source/activity`                                                                                                                                  |
-| 5    | `search`, `analytics/*`                                                                                                                                                                                        |
+| Cost | Routes                                                                                                                                                                                                                                                                                                   |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `lists`, `versions`, `versions/:major/gucs`, `versions/:major/docs`, `imports`, `messages/:id` (+ `/thread`, `/commits`, `/commitfest`, `/refs`), `senders/:id`, `commits/:sha` (+ `/thread`), `attachments/:id` (+ `/patch`), `cf-patches/:id`, `watches` (+ `/:id`, every method), `webhook-endpoints` |
+| 2    | `messages`, `senders`, `threads`, `commits`, `attachments`, `source/activity`, `commitfests` (+ `/:id/patches`)                                                                                                                                                                                          |
+| 5    | `search`, `analytics/*`                                                                                                                                                                                                                                                                                  |
 
 | Tier               | Credits   | Window | Burst (requests/min) | In searches |
 | ------------------ | --------- | ------ | -------------------- | ----------- |
