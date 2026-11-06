@@ -3,7 +3,7 @@ title: What you can ask
 description: The core questions pgLantern answers, driven from the lantern CLI — commits to discussions, threads to commits, and GUCs across versions.
 ---
 
-Three questions the archive answers that a mail search box can't. Each is one `lantern`
+Four questions the archive answers that a mail search box can't. Each is one `lantern`
 command; [commits and discussions](/examples/correlation/) covers the mechanics and the
 `curl` equivalents.
 
@@ -50,6 +50,24 @@ SHA                                       AUTHOR                                
 ```
 
 Commits are grouped by subject. An empty result means the thread never landed anything.
+
+## Thread → commitfest status
+
+Where a discussion's patch stands in review, per the commitfest app:
+
+```sh check=thread-commitfest
+lantern messages commitfest 'CACG=ezaWg7_nt-8ey4aKv2w9LcuLthHknwCawmBgEeTnJrJTcw@mail.gmail.com'
+```
+
+```txt output=thread-commitfest
+PATCH  STATUS        CF      NAME
+5205   needs_review  PG19-3  Make MultiXactOffset 64-bit type
+```
+
+An empty result means the thread never entered a commitfest; `committed` is the app's claim,
+and `lantern messages commits` is what actually landed. Commitfest state here is as of
+2026-11-04; [commitfest status](/examples/commitfest/) covers patch history and the
+`--cf-status` filter.
 
 ## GUCs
 

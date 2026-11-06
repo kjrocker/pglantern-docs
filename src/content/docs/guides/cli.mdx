@@ -115,6 +115,13 @@ lantern commits get 0164a0f9ee12e0eff9e4c661358a272ecd65c2d4
 lantern messages commits 'Z2DE4lDX4tHqNGZt@dev.null'
 lantern commits thread 0164a0f9ee12e0eff9e4c661358a272ecd65c2d4
 
+# Commitfest: a thread's patches, the cfs, one cf's entries, one patch
+lantern messages commitfest 'CACG=ezaWg7_nt-8ey4aKv2w9LcuLthHknwCawmBgEeTnJrJTcw@mail.gmail.com'
+lantern commitfests --limit 5
+lantern commitfests patches 51 --status ready_for_committer
+lantern commitfests patch 4723
+lantern search btree --path src/backend/access/nbtree/ --cf-status needs_review --limit 5
+
 # Attachments and parsed patch series
 lantern attachments --sort size --limit 5
 lantern attachments patch 146643

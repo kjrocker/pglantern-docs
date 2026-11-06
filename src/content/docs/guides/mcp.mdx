@@ -30,20 +30,25 @@ available on your account yet, use Claude Code or the Messages API instead.
 
 ## The tools
 
-| Tool                 | What it returns                                                                               |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| `search_messages`    | Full-text search over the archives; message summaries, `limit` ≤ 50                           |
-| `get_message`        | One message in full: body text, sender, lists, attachment metadata                            |
-| `get_thread`         | The whole thread containing a message, flat, oldest first                                     |
-| `list_threads`       | Rank threads by last activity, start, or message count — optionally on one list               |
-| `get_thread_commits` | Commits that landed from a thread (via `Discussion:` trailers)                                |
-| `get_commit`         | One postgres.git commit by SHA: message, files, first-shipped releases                        |
-| `get_commit_thread`  | The discussion a commit's `Discussion:` trailer points at                                     |
-| `list_mailing_lists` | The lists in the archive — fills the `list` parameter on `search_messages` and `list_threads` |
-| `list_gucs`          | A major version's GUC catalog; `changed_since` diffs it against an older major                |
+| Tool                      | What it returns                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `search_messages`         | Full-text search over the archives; message summaries, `limit` ≤ 50                               |
+| `get_message`             | One message in full: body text, sender, lists, attachment metadata                                |
+| `get_thread`              | The whole thread containing a message, flat, oldest first                                         |
+| `list_threads`            | Rank threads by last activity, start, or message count — optionally on one list                   |
+| `get_thread_commits`      | Commits that landed from a thread (via `Discussion:` trailers)                                    |
+| `get_commit`              | One postgres.git commit by SHA: message, files, first-shipped releases                            |
+| `get_commit_thread`       | The discussion a commit's `Discussion:` trailer points at                                         |
+| `list_mailing_lists`      | The lists in the archive — fills the `list` parameter on `search_messages` and `list_threads`     |
+| `list_gucs`               | A major version's GUC catalog; `changed_since` diffs it against an older major                    |
+| `get_thread_commitfest`   | The commitfest patches attached to a thread, with each one's current status                       |
+| `get_commitfest_patch`    | One CF patch: its history across commitfests, its threads, and their commits                      |
+| `list_commitfests`        | The commitfests, with dates and per-status entry counts — the ids `list_commitfest_patches` needs |
+| `list_commitfest_patches` | One commitfest's entries, filtered by `status`; `limit` ≤ 50                                      |
 
 Parameters mirror the [REST API](/reference/api/) exactly — the tool schemas are derived
-from the same OpenAPI spec.
+from the same OpenAPI spec, so `cf_status` works on `search_messages` and `list_threads` as
+it does on the API ([commitfest status](/examples/commitfest/)).
 
 ## Limits and errors
 

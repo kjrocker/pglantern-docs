@@ -1,0 +1,312 @@
+---
+title: Commitfest status
+description: Join the commitfest app to the archive — a thread's CF patches, a patch's trajectory, threads and commits, and cf_status= on search and threads.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+The [commitfest app](https://commitfest.postgresql.org/) tracks where a patch stands in
+review: needs review, waiting on author, ready for committer, or one of its final outcomes.
+pgLantern syncs it daily and joins it to the threads and commits it already links, so you
+can ask what happened to a discussion without leaving the API.
+
+All examples assume a key in `$PGLANTERN_KEY`. Outputs were captured against the archive as
+of 2026-01-01. Commitfest state is as of 2026-11-04, limited to commitfests that started
+before 2026; patches that later moved into a 2026 commitfest are left out of this snapshot.
+
+## A thread's patches
+
+`GET /messages/:message_id/commitfest` takes any message in a thread and returns the CF
+patches attached to that thread, each with its current status and commitfest. This one is
+the thread behind making `MultiXactOffset` 64-bit:
+
+<Tabs>
+<TabItem label="curl">
+
+```sh check=thread-cf-curl
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/messages/CACG%3DezaWg7_nt-8ey4aKv2w9LcuLthHknwCawmBgEeTnJrJTcw%40mail.gmail.com/commitfest" \
+  | jq '.data[] | {id, name, authors, status: .current.status, cf: .current.cf_name}'
+```
+
+```json output=thread-cf-curl
+{
+  "id": 5205,
+  "name": "Make MultiXactOffset 64-bit type",
+  "authors": [
+    "Maxim Orlov"
+  ],
+  "status": "needs_review",
+  "cf": "PG19-3"
+}
+```
+
+</TabItem>
+<TabItem label="lantern">
+
+```sh check=thread-cf-cli
+lantern messages commitfest 'CACG=ezaWg7_nt-8ey4aKv2w9LcuLthHknwCawmBgEeTnJrJTcw@mail.gmail.com'
+```
+
+```txt output=thread-cf-cli
+PATCH  STATUS        CF      NAME
+5205   needs_review  PG19-3  Make MultiXactOffset 64-bit type
+```
+
+</TabItem>
+</Tabs>
+
+A thread can carry several patches — a reused thread where one patch was committed and a
+follow-up opened on it — so `data` is a list. An empty list means the thread never entered a
+commitfest.
+
+## One patch: history, threads, commits
+
+`GET /cf-patches/:id` is the cross-reference for one patch, keyed by its commitfest id (the
+number in `commitfest.postgresql.org/patch/<id>/`). Dean Rasheed's `RETURNING OLD/NEW` patch
+moved through five commitfests before it was committed in 2025-01:
+
+```sh check=patch-history
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/cf-patches/4723" \
+  | jq -r '.data.history[] | [.cf_name, .status, .entered_at, .left_at] | @tsv'
+```
+
+```txt output=patch-history
+2024-01	moved	2023-12-26T09:18:21Z	2024-02-01T18:08:28Z
+2024-03	moved	2024-02-01T18:08:28Z	2024-04-09T06:23:08Z
+2024-07	moved	2024-04-09T06:23:08Z	2024-08-01T06:14:31Z
+2024-09	moved	2024-08-01T06:14:31Z	2024-10-08T03:33:38Z
+2024-11	moved	2024-10-08T03:33:38Z	2024-12-03T12:19:29Z
+2025-01	committed	2024-12-03T12:19:29Z	2025-01-16T15:23:01Z
+```
+
+`history` is every entry oldest first; `moved` means the patch moved on to the next
+commitfest. `current` is the one entry that isn't `moved`. The same response carries the
+threads the patch cites and the commits those threads landed:
+
+```sh check=patch-links
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/cf-patches/4723" \
+  | jq '{threads: [.data.threads[] | {message_id, thread_id}],
+         commits: [.data.commits[] | {sha, subject, sources}]}'
+```
+
+```json output=patch-links
+{
+  "threads": [
+    {
+      "message_id": "CAEZATCWx0J0-v=Qjc6gXzR=KtsdvAE7Ow=D=mu50AgOe+pvisQ@mail.gmail.com",
+      "thread_id": "50bdb003-3054-5a12-a99f-fcf6dbf37d73"
+    }
+  ],
+  "commits": [
+    {
+      "sha": "3ba9639e39ed8cf2d9dd30f6b8a3b3e9fffb9a64",
+      "subject": "doc: Updates for RETURNING OLD/NEW.",
+      "sources": [
+        "trailer"
+      ]
+    },
+    {
+      "sha": "43830ecb8a9b6a1bc322298a77a5e0d87c2e83d4",
+      "subject": "Fix parsing of qualified relation names in RETURNING.",
+      "sources": [
+        "trailer"
+      ]
+    },
+    {
+      "sha": "80feb727c869cc0b2e12bd1543bafa449be9c8e2",
+      "subject": "Add OLD/NEW support to RETURNING in DML queries.",
+      "sources": [
+        "trailer"
+      ]
+    },
+    {
+      "sha": "7f798aca1d5df290aafad41180baea0ae311b4ee",
+      "subject": "Remove useless casts to (void *)",
+      "sources": [
+        "body_sha"
+      ]
+    },
+    {
+      "sha": "2bb969f3998489e5dc4fe9f2a61185b43581975d",
+      "subject": "Refactor/reword some error messages to avoid duplicates",
+      "sources": [
+        "body_sha"
+      ]
+    }
+  ]
+}
+```
+
+`sources` says how each commit links to the thread: `trailer` is a `Discussion:` trailer in
+the commit, `body_sha` is a commit the thread's messages cite by sha. Only the trailer links
+are commits that came out of the discussion.
+
+The CLI prints all three as tables:
+
+```sh check=patch-cli
+lantern commitfests patch 4723
+```
+
+```txt output=patch-cli
+# patch 4723: RETURNING OLD/NEW values
+status: committed (2025-01)
+authors: Dean Rasheed
+url: https://commitfest.postgresql.org/patch/4723/
+
+history
+CF       STATUS     ENTERED     LEFT
+2024-01  moved      2023-12-26  2024-02-01
+2024-03  moved      2024-02-01  2024-04-09
+2024-07  moved      2024-04-09  2024-08-01
+2024-09  moved      2024-08-01  2024-10-08
+2024-11  moved      2024-10-08  2024-12-03
+2025-01  committed  2024-12-03  2025-01-16
+
+threads
+THREAD                                SUBJECT                              LATEST      MESSAGE-ID
+50bdb003-3054-5a12-a99f-fcf6dbf37d73  Adding OLD/NEW support to RETURNING  2025-01-17  CAEZATCWx0J0-v=Qjc6gXzR=KtsdvAE7Ow=D=mu50AgOe+pvisQ@mail.gmail.com
+
+commits
+SHA                                       AUTHOR                                    COMMITTED AT          SUBJECT
+3ba9639e39ed8cf2d9dd30f6b8a3b3e9fffb9a64  Dean Rasheed <dean.a.rasheed@gmail.com>   2025-06-26T09:13:00Z  doc: Updates for RETURNING OLD/NEW.
+43830ecb8a9b6a1bc322298a77a5e0d87c2e83d4  Dean Rasheed <dean.a.rasheed@gmail.com>   2025-01-17T10:35:07Z  Fix parsing of qualified relation names in RETURNING.
+80feb727c869cc0b2e12bd1543bafa449be9c8e2  Dean Rasheed <dean.a.rasheed@gmail.com>   2025-01-16T14:57:35Z  Add OLD/NEW support to RETURNING in DML queries.
+7f798aca1d5df290aafad41180baea0ae311b4ee  Peter Eisentraut <peter@eisentraut.org>   2024-11-28T07:27:20Z  Remove useless casts to (void *)
+2bb969f3998489e5dc4fe9f2a61185b43581975d  Alvaro Herrera <alvherre@alvh.no-ip.org>  2024-08-07T15:30:36Z  Refactor/reword some error messages to avoid duplicates
+```
+
+## A commitfest's entries
+
+`GET /commitfests` lists the commitfests with their dates and per-status entry counts;
+`GET /commitfests/:id/patches` lists one cf's entries. `status=` takes a status slug or
+`open`/`closed`, and it filters on the entry's status **in that commitfest**. Each row also
+carries `current`, which can sit in a later cf.
+
+<Tabs>
+<TabItem label="curl">
+
+```sh check=cf-patches-curl
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/commitfests/51/patches?status=ready_for_committer" \
+  | jq -r '.data[] | [.id, .entry.status, .name] | @tsv'
+```
+
+```txt output=cf-patches-curl
+4240	ready_for_committer	Cross-database SERIALIZABLE safe snapshots
+5158	ready_for_committer	Blast-RADIUS mitigation
+```
+
+</TabItem>
+<TabItem label="lantern">
+
+```sh check=cf-patches-cli
+lantern commitfests patches 51 --status ready_for_committer
+```
+
+```txt output=cf-patches-cli
+PATCH  STATUS               NAME                                        AUTHORS
+4240   ready_for_committer  Cross-database SERIALIZABLE safe snapshots  Thomas Munro
+5158   ready_for_committer  Blast-RADIUS mitigation                     Thomas Munro
+```
+
+</TabItem>
+</Tabs>
+
+Commitfest 51 is `2025-01`. Find a cf's id with `lantern commitfests` or `GET /commitfests`.
+
+## Filter search and threads by CF status
+
+`cf_status=` on `/search` and `/threads` keeps threads attached to a patch whose **current**
+status matches: a slug, `open` (needs review, waiting on author, ready for committer),
+`closed`, or `any`. Combined with `path=`, it answers "which nbtree threads are waiting on
+review?":
+
+<Tabs>
+<TabItem label="curl">
+
+```sh check=cf-search-curl
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/search?q=btree&path=src/backend/access/nbtree/&cf_status=needs_review&limit=5" \
+  | jq -r '.data[] | [.sent_at, .sender.display_name, .subject] | @tsv'
+```
+
+```txt output=cf-search-curl
+2024-10-11T14:27:09Z	Matthias van de Meent	Limiting overshoot in nbtree's parallel SAOP index scans
+2024-06-28T12:05:23Z	Matthias van de Meent	Re: Improve EXPLAIN output for multicolumn B-Tree Index
+2025-09-01T23:51:21Z	Michael Paquier	Re: Replace magic numbers with strategy numbers for B-tree indexes
+2024-10-16T21:48:22Z	Matthias van de Meent	Re: Limiting overshoot in nbtree's parallel SAOP index scans
+2025-07-02T11:24:02Z	Peter Eisentraut	Re: Replace magic numbers with strategy numbers for B-tree indexes
+```
+
+</TabItem>
+<TabItem label="lantern">
+
+```sh check=cf-search-cli
+lantern search btree --path src/backend/access/nbtree/ --cf-status needs_review --limit 5
+```
+
+```txt output=cf-search-cli
+SENT AT               FROM                   SUBJECT                                                             MESSAGE-ID
+2024-10-11T14:27:09Z  Matthias van de Meent  Limiting overshoot in nbtree's parallel SAOP index scans            CAEze2WibRbQO+wi0cD-QAE6h6WimV=peVbgqT0b8bBDOqGJfrA@mail.gmail.com
+2024-06-28T12:05:23Z  Matthias van de Meent  Re: Improve EXPLAIN output for multicolumn B-Tree Index             CAEze2Wh63ZOG1wTuiqAkhpnrQFeR6q9Z6Bctz32k1kMbbW_7NA@mail.gmail.com
+2025-09-01T23:51:21Z  Michael Paquier        Re: Replace magic numbers with strategy numbers for B-tree indexes  aLYxeYIY70jup555@paquier.xyz
+2024-10-16T21:48:22Z  Matthias van de Meent  Re: Limiting overshoot in nbtree's parallel SAOP index scans        CAEze2WgWTFU4ovwS4nr_SZU+WSnxoAJ91Sx3uK-muSChh3JSrQ@mail.gmail.com
+2025-07-02T11:24:02Z  Peter Eisentraut       Re: Replace magic numbers with strategy numbers for B-tree indexes  3bb2d82c-33ea-427f-b756-9777f070d2c8@eisentraut.org
+```
+
+</TabItem>
+</Tabs>
+
+On `/threads` it ranks the matching threads instead:
+
+```sh check=cf-threads
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/threads?cf_status=ready_for_committer&list=pgsql-hackers&sort=messages&limit=5" \
+  | jq -r '.data[] | [.message_count, .subject] | @tsv'
+```
+
+```txt output=cf-threads
+28	[Patch] add new parameter to pg_replication_origin_session_setup
+27	[PATCH] New predefined role pg_manage_extensions
+7	BlastRADIUS mitigation
+3	Cross-database SERIALIZABLE safe snapshots
+3	Covering the comparison between date and timestamp, tz, type
+```
+
+## Limits
+
+- **Current status only.** `cf_status=` and `current` reflect where a patch stands now. A
+  patch's past statuses show up in `history`, but they don't match a filter.
+- **`committed` is the commitfest app's claim.** The git history is authoritative for what
+  landed. Check `GET /messages/:message_id/commits` or the `commits` on a patch.
+- **A null `thread_id` is data, not an error.** The patch cites a message the archive
+  doesn't hold, such as a thread on a list we don't ingest. Its `message_id` is still the
+  commitfest app's value.
+- **Ids are integers.** An unknown patch or commitfest id is a `404`; a non-integer one is a
+  `422`:
+
+```sh check=cf-errors
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" "https://pglantern.com/api/v1/cf-patches/999999"
+echo
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" "https://pglantern.com/api/v1/cf-patches/abc" | jq -c .error.code
+```
+
+```txt output=cf-errors
+{"error":{"code":"not_found","message":"No resource was found with that identifier."}}
+"invalid_params"
+```
+
+<Aside>
+Over MCP the same routes are the `get_thread_commitfest`, `get_commitfest_patch`,
+`list_commitfests` and `list_commitfest_patches` tools; see [Connect via MCP](/guides/mcp/).
+</Aside>
+
+## Next
+
+- [Commits and discussions](/examples/correlation/) — the thread → commit links the patch
+  view reuses
+- [Full-text search](/examples/search/) — the rest of the `/search` filters
+- [API reference](/reference/api/) — full response shapes

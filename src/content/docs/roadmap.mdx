@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: What pgLantern is building next — commitfest integration, pipeline optimization, semantic search.
+description: What pgLantern is building next — commitfest analytics and watches, pipeline optimization, semantic search.
 ---
 
 Right now I'm focused on building out the core API, and optimizing what I have to run
@@ -14,9 +14,10 @@ on performance, is to move Postgres to that spare box.
 
 ## Commitfest integration
 
-The next big push. I want to fully integrate the CommitFest data as a third data source
-alongside the commits and the messages. I'm setting groundwork for this right now by
-upstreaming some endpoints to the CommitFest application itself.
+CommitFest data is now the third data source alongside the commits and the messages: synced
+daily, joined to threads and commits, and live on the API, the CLI, and MCP
+([commitfest status](/examples/commitfest/)). Next up are outcome and time-to-close
+analytics per commitfest, and watches that fire when a patch's status changes.
 
 ## Semantic search
 

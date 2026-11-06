@@ -46,6 +46,7 @@ export default defineConfig({
 							items: [
 								{ label: 'Full-text search', slug: 'examples/search' },
 								{ label: 'Commits and discussions', slug: 'examples/correlation' },
+								{ label: 'Commitfest status', slug: 'examples/commitfest' },
 								{ label: 'Pagination', slug: 'examples/pagination' },
 							],
 						},
