@@ -3,8 +3,6 @@ title: Commits and discussions
 description: Walk the graph linking mail, commits, patches, and GUCs — commit → thread, message → commits, refs, and version provenance.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-
 The archive is essentially a giant graph. A thread argues a change, a patch attachment
 carries the diff, a commit lands citing the thread in its `Discussion:` trailer, and the GUC
 catalog remembers which major shipped it. Every edge below is a join we've correlated for
@@ -233,35 +231,25 @@ message	2025-12-30T01:05:53Z	Re: [PATCH] Allow complex data for GUC extra.
 
 The newest activity on the GUC machinery's own directory (as of the corpus cutoff): Tom Lane
 proposing to remove support for `standard_conforming_strings = off`. That message carries a
-patch series, and `GET /attachments/:id/patch` returns what the pipeline parsed out of each
-diff-shaped attachment — format, series position, and a hunk-accurate per-file diffstat:
+patch series. Every attachment on a full message carries `is_patch` and, for a diff, its
+series position under `patch` — so `GET /messages/:id/thread?response=full` lists every part
+of every version in a thread in one call:
 
 ```sh check=attachment-patch
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
   "https://pglantern.com/api/v1/messages/3730915.1767135010%40sss.pgh.pa.us" \
-  | jq '[.data.attachments[] | {id, filename}]'
+  | jq -c '.data.attachments[] | {id, filename, series: [.patch.series_version, .patch.series_seq]}'
 ```
 
 ```json output=attachment-patch
-[
-  {
-    "id": 146640,
-    "filename": "v1-0001-Force-standard_conforming_strings-to-always-be-ON.patch"
-  },
-  {
-    "id": 146641,
-    "filename": "v1-0002-Remove-server-side-support-for-standard_conformin.patch"
-  },
-  {
-    "id": 146642,
-    "filename": "v1-0003-Adjust-pg_dump-and-pg_dumpall-for-standard_confor.patch"
-  },
-  {
-    "id": 146643,
-    "filename": "v1-0004-Remove-escape_string_warning.patch"
-  }
-]
+{"id":146640,"filename":"v1-0001-Force-standard_conforming_strings-to-always-be-ON.patch","series":[1,1]}
+{"id":146641,"filename":"v1-0002-Remove-server-side-support-for-standard_conformin.patch","series":[1,2]}
+{"id":146642,"filename":"v1-0003-Adjust-pg_dump-and-pg_dumpall-for-standard_confor.patch","series":[1,3]}
+{"id":146643,"filename":"v1-0004-Remove-escape_string_warning.patch","series":[1,4]}
 ```
+
+`GET /attachments/:id/patch` adds what the pipeline parsed out of each diff-shaped
+attachment — the format-patch subject and a hunk-accurate per-file diffstat:
 
 ```sh check=patch-parse
 curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
@@ -300,10 +288,22 @@ tables, docs, and regression tests, counted per hunk, so the patch's commit-mess
 and mail signature don't inflate the numbers. `404` here covers both "no such attachment"
 and "not a patch"; check `is_patch` on the attachment record to distinguish up front.
 
-<Aside type="note">
-The API returns patch *metadata*, never attachment bytes — pull the actual diff from the
-upstream archive via the message's `archive_url`.
-</Aside>
+`GET /attachments/:id/raw` returns the patch itself, as posted — `text/plain`, gzipped parts
+decompressed, bytes passed through without a charset (older patches are often latin-1). It
+serves the same set as `/patch`; any other attachment is a `404`, so non-diff bytes never
+come back:
+
+```sh check=attachment-raw
+curl -s -H "Authorization: Bearer $PGLANTERN_KEY" \
+  "https://pglantern.com/api/v1/attachments/146643/raw" \
+  | grep -c '^diff --git'
+```
+
+```txt output=attachment-raw
+10
+```
+
+One `diff --git` per file in the diffstat above — pipe it to `git am` (or `git apply`).
 
 ## Next
 

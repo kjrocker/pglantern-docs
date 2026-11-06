@@ -28,8 +28,8 @@ Voice rules that follow from it:
 - Clear and direct, sentence-case headings. Real Postgres vocabulary (keyset pagination,
   `Discussion:` trailer) used correctly and without a glossary. But the reader knows
   Postgres, not _this_ system — don't reach for internal names to sound precise.
-- Concrete and honest about limits: relevance search caps at 200; the API returns metadata,
-  not attachment bytes; "free" still requires registration.
+- Concrete and honest about limits: relevance search caps at 200; attachment bytes are
+  served only for parsed patches; "free" still requires registration.
 - Surface quirks as facts, not apologies (a phantom ref is "data, not an error").
 
 ## How much to say
