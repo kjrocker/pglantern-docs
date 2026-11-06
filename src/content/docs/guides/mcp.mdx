@@ -35,7 +35,7 @@ available on your account yet, use Claude Code or the Messages API instead.
 | `search_messages`         | Full-text search over the archives; message summaries, `limit` ≤ 50                               |
 | `get_message`             | One message in full: body text, sender, lists, attachment metadata                                |
 | `get_thread`              | The whole thread containing a message, flat, oldest first                                         |
-| `list_threads`            | Rank threads by last activity, start, or message count — optionally on one list                   |
+| `list_threads`            | Rank threads by activity or size; with `q`, `match` shows which messages hit, with snippets       |
 | `get_thread_commits`      | Commits that landed from a thread (via `Discussion:` trailers)                                    |
 | `get_commit`              | One postgres.git commit by SHA: message, files, first-shipped releases                            |
 | `get_commit_thread`       | The discussion a commit's `Discussion:` trailer points at                                         |
